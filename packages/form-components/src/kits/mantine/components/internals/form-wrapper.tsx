@@ -21,7 +21,7 @@ const AutoSaveStatus = () => {
 }
 
 export const FormWrapper = (props: Props) => {
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
 
   const context = useParentFormStore(
     (formStore: FormStore<MantineFormComponentsContext>) => formStore.context
@@ -44,11 +44,9 @@ export const FormWrapper = (props: Props) => {
     [context.formGridGutter, context.formGridStyleProps, props.children]
   )
 
-  const forceColorScheme = (theme as 'light' | 'dark') || undefined
-
   if (context.isFormInModal) {
     return (
-      <MantineProvider forceColorScheme={forceColorScheme}>
+      <MantineProvider forceColorScheme={resolvedTheme as 'light' | 'dark'}>
         <Modal opened onClose={() => context.onFormModalClose?.()}>
           {formContent}
         </Modal>
@@ -57,7 +55,7 @@ export const FormWrapper = (props: Props) => {
   }
 
   return (
-    <MantineProvider forceColorScheme={forceColorScheme}>
+    <MantineProvider forceColorScheme={resolvedTheme as 'light' | 'dark'}>
       {formContent}
     </MantineProvider>
   )

@@ -112,6 +112,7 @@ The `FormComponentMappingsProvider` component accepts 4 different categories of 
 ### Component mappings example
 
 ```jsx
+import { FormComponentMappingsProvider } from 'react-flexyform'
 import { TextField, TextFieldParams } from '@my-project/components/TextField'
 import {
   SelectField,
@@ -129,7 +130,8 @@ import {
   FormWrapper
 } from '@my-project/components/FormWrapper'
 import {
-  ComponentWrapper
+  ComponentWrapper,
+  ComponentWrapperParams,
 } from '@my-project/components/ComponentWrapper'
 import {
   FormInitialDataLoadingIndicator
@@ -178,16 +180,22 @@ declare global {
     sectionWithBorder: SectionWithBorderParams
     // ...Rest of the components
   }
+
+  interface ComponentWrapperParams {
+    wrapperParams?: ComponentWrapperParams
+  }
 }
 
-<FormComponentMappingsProvider
-  fieldComponentMappings={fieldComponentMappings}
-  uiComponentMappings={uiComponentMappings}
-  wrapperComponentMappings={wrapperComponentMappings}
-  internalComponentMappings={internalComponentMappings}
->
-  {/* ...Your application code */}
-</FormComponentMappingsProvider>
+export const App = () => (
+  <FormComponentMappingsProvider
+    fieldComponentMappings={fieldComponentMappings}
+    uiComponentMappings={uiComponentMappings}
+    wrapperComponentMappings={wrapperComponentMappings}
+    internalComponentMappings={internalComponentMappings}
+  >
+    {/* ...Your application code */}
+  </FormComponentMappingsProvider>
+)
 ```
 
 ## Creating our first form

@@ -1,3 +1,3 @@
 # React FlexyForm
 
-[Documentation 📒](https://react-consistent-form-docs.vercel.app/docs)
+[Documentation 📒](https://react-flexyform.vercel.app)
