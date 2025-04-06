@@ -1,5 +1,11 @@
 # react-flexyform
 
+## 0.1.0
+
+### Minor Changes
+
+- a008790: Initial release
+
 ## 0.4.1
 
 ### Patch Changes
