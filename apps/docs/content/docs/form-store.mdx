@@ -1,0 +1,2894 @@
+---
+title: Creating the form store
+---
+
+import RequiredOrOptional from '../../app/components/ui/required-or-optional'
+import DefaultValue from '../../app/components/ui/default-value'
+import Text from '../../app/components/ui/text'
+
+By calling the [useCreateFormStore](/docs/form-store#usecreateformstore) hook with a configuration object we create a new `formStore` instance that manages the state of a single form.
+
+The [\<Form\>](/docs/form-store#form) component renders the form based on the `formStore` instance we provide to it.
+
+```tsx
+import { useCreateFormStore, Form } from 'react-flexyform'
+
+export const BookingForm = () => {
+  const bookingFormStore = useCreateFormStore('bookingForm', {
+    // Configuration object
+    // steps: [{ components: [...], ...}, { components: [...], ...}, { components: [...], ...}],
+  })
+
+  return <Form formStore={bookingFormStore} />
+}
+```
+
+We have access to the `formStore` state from each of our form components (that we provided to the [FormComponentMappingsProvider](/docs/form-store#formcomponentmappingsprovider)) via hooks like `useParentFormStore`. The instance of the `formStore` that the component accesses will be based on which form renders the given component. In this way we create dynamic reusable components that can fit in any form.
+
+```tsx
+import { useField, useFormComponentParams } from 'react-flexyform'
+import classNames from 'classnames'
+
+type TextFieldParams = {
+  label?: string
+  placeholder?: string
+  containerClassName?: string
+}
+
+const FormIntegratedTextField = () => {
+  const field = useField()
+  const params = useFormComponentParams<TextFieldParams>().value
+
+  const isSubmitting = useParentFormStore((store) => store.isSubmitting)
+  const isChangingStep = useParentFormStore((store) => store.isChangingStep)
+
+  const fieldValidationError = field.state.validationError?.[0]
+
+  if (!field) {
+    return null
+  }
+
+  const formIntegratedInputControls = {
+    id: field.configuration.id,
+    name: field.configuration.name,
+    value: field.state.value,
+    onChange: field.methods.handleChange,
+    onBlur: field.methods.handleBlur,
+    placeholder: params.placeholder,
+    disabled: isSubmitting || isChangingStep || field.state.isValidating,
+    className: classNames('text-input', {
+      error: Boolean(fieldValidationError),
+    }),
+  }
+
+  return (
+    <div className={params.containerClassName}>
+      {params.label && (
+        <label htmlFor={field.configuration.id} className="field-label">
+          {params.label}
+        </label>
+      )}
+      <input type="text" {...formIntegratedInputControls} />
+      {fieldValidationError && (
+        <p className="field-error">{fieldValidationError}</p>
+      )}
+    </div>
+  )
+}
+```
+
+## Configuring the form store
+
+<Text>Property type:</Text>
+[CreateStoreConfiguration](/docs/form-store#createstoreconfiguration)
+
+The configuration we provide to the [useCreateFormStore](/docs/form-store#usecreateformstore) hook will determine how the form and the state store will behave.
+
+We have 2 types of configurations:
+
+- Single step form (<Text>Property type:</Text> [CreateStoreSingleStepConfiguration](/docs/form-store#createstoresinglestepconfiguration))
+- Multi step form (<Text>Property type:</Text> [CreateStoreMultiStepConfiguration](/docs/form-store#createstoremultistepconfiguration))
+
+## Components
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components`
+<RequiredOrOptional type="required" />
+
+<Text>Property type:</Text>
+[FormComponentConfiguration[]](/docs/form-store#formcomponentconfiguration)
+
+The most important configuration in any form is the components of the form. These components will be rendered one after another by the [\<Form\>](/docs/form-store#form) component (except for wrapper components).
+There are 3 types of components that can be defined here:
+
+- **Field components**: these hold user input values
+- **UI components**: these can be anything that don't hold user inputs (ex. buttons)
+- **Wrapper components**: these wrap around other components
+
+### Accessing the form store in functions
+
+Many of the configuration properties are functions that will be called at specific times. These functions will have access to the `formStore` instance that is created by the [useCreateFormStore](/docs/form-store#usecreateformstore) hook.
+
+In some cases you need to supply an array of `dependencies` to ensure that the function is called when its dependencies from the `formStore` change.
+
+```tsx
+const signUpFormStore = useCreateFormStore(
+  'signUpForm',
+  (getFormStoreState) => ({
+    components: [{
+      //...
+      {
+        // ...component configuration
+        componentParams: {
+          value: () => {
+            // Refer to another field's value with getFieldValue and the field's name, which is 'age' in this example
+            const age = getFormStoreState().getFieldValue('age')
+
+            if (age < 18) {
+              return {
+                label: 'Parent email',
+              }
+            }
+
+            return {
+              label: 'Email',
+            }
+          },
+          // Re-run the value function when the 'age' field value changes
+          dependencies: () => [getFormStoreState().getFieldValue('age')],
+        },
+      }
+    }]
+  })
+)
+```
+
+### Common component properties
+
+Most of the configurable properties are common between the 3 types of components.
+
+UI Components do not have specific properties, they only have the following common properties.
+
+#### type [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `type`
+<RequiredOrOptional type="required" />
+
+<Text>Property type:</Text> `"field" | "ui" | "wrapper"`
+
+Determines what type of form component the configuration will be for.
+
+---
+
+#### formComponentMappingKey [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `formComponentMappingKey`
+<RequiredOrOptional type="required" />
+
+<Text>Property type:</Text> `string`
+
+The mapping key defined in the [form component mappings](/docs#define-the-mappings-of-the-form-components) (it will map to a React component).
+
+---
+
+#### name [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `name`
+<RequiredOrOptional
+  type="required"
+  extraText="if type = 'field'"
+  default="auto-generated identifier"
+/>
+
+<Text>Property type:</Text> `string`
+
+This will be the identifier of the component in the form. For `field` type components this is required because we want them to have specific keys when submitting data to our server or to have dynamic logic tied to their values.
+
+For `ui` and `wrapper` type components usually it's not needed to define their `name` (it will be auto generated containing a unique [nanoid](https://www.npmjs.com/package/nanoid) if not defined), unless if we want to implement some kind of dynamic logic tied to their [componentParams](/docs/form-store#componentparams).
+
+---
+
+#### componentParams [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `componentParams`
+<RequiredOrOptional type="optional" default="{}" />
+
+<Text>Property type:</Text>
+```tsx
+    | Record<string, any>
+    | {
+        value: (
+          nestedArrayItemIndex?: number,
+          abortController?: AbortController
+        ) => Record<string, any> | Promise<Record<string, any>>
+        staticPart?: Record<string, any>
+        dependencies?: () => any[]
+      }
+```
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+This is the equivalent of props in traditional React components. The component will be able to access its params via the `useFormComponentParams` hook.
+
+This can also be defined in a dynamic way by providing it an object with a `value` function that returns the parameters and an optional `dependencies` function that will trigger the `value` function when the dependencies change.
+
+We can also provide an async `value` function, which will set the corresponding `isLoading` and `loadingError` states for the [componentParams](/docs/form-store#componentparams-form-store) in the store.
+
+If providing an async `value` function, we can also provide a `staticPart` object, which will be merged with the resolved value of the async function.
+
+In case of async `value` function, ou should supply the `abortController` to the request handler (like `fetch`), because in case of race conditions `abort` will be called when necessary.
+
+<Callout>
+  It's recommended to ensure the type safety of the `formComponentMappingKey`
+  and `componentParams` properties. Learn more in the
+  [Typescript](/docs/typescript) section.
+</Callout>
+
+---
+
+#### shouldShowOnlyIf [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `shouldShowOnlyIf`
+<RequiredOrOptional type="optional" default="() => true" />
+
+<Text>Property type:</Text>
+```tsx
+    | { [fieldName: string]: any}
+    | {
+        value: (
+          nestedArrayItemIndex?: number
+        ) => boolean
+        dependencies?: () => any[]
+      }
+```
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+This configuration allows for an easy way to define logic for showing or hiding the component.
+
+If a generic object is supplied then the keys of the object represent the names of the fields, and the component will show only if all the field values are equal to the ones defined in the object.
+
+If an object is supplied with a `value` key that is a function, then the component will show only if the `value` function returns `true`. This function will run each time one of the values from the `dependencies` array change.
+
+If the component is a field component and it's not showing, it will get excluded from the return value of methods which return the fields' values (ex. [getStepFieldValues](/docs/form-store#getstepfieldvalues), [getAllFieldValues](/docs/form-store#getallfieldvalues)).
+
+---
+
+#### shouldShowOnlyIfMediaQueryMatches [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \>
+`shouldShowOnlyIfMediaQueryMatches`
+<RequiredOrOptional type="optional" default='"@media (min-width: 0px)"' />
+
+<Text>Property type:</Text> `string`
+
+If this is defined, the field will only render if the media query is matched. For example `@media (min-width: 600px)` will only render the field if the screen is wider than 600px.
+
+If the component is a field component and it's not matching the media query, it will get excluded from the return value of methods which return the fields' values (ex. [getStepFieldValues](/docs/form-store#getstepfieldvalues), [getAllFieldValues](/docs/form-store#getallfieldvalues)).
+
+---
+
+#### shouldShowOnlyOnScreenSize [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `shouldShowOnlyOnScreenSize`
+<RequiredOrOptional type="optional" default="{ min: null, max: null }" />
+
+<Text>Property type:</Text> `{ min: number | null; max: number | null }`
+
+If this is defined, the field will only render if the screen size is matching the `min` and `max`. This is an easier to read alternative to `mediaQuery`. For example `{ min: null, max: 500 }` will render the field if the screen width is below 500px. (When `min: null`, it means `0px`. When `max: null`, it means `Infinity`)
+
+If the component is a field component and it's not matching the screen size, it will get excluded from the return value of methods which return the fields' values (ex. [getStepFieldValues](/docs/form-store#getstepfieldvalues), [getAllFieldValues](/docs/form-store#getallfieldvalues)).
+
+---
+
+### Field component specific properties
+
+These are the only components that hold user input values and validation errors.
+
+In addition to the [common properties](/docs/form-store#components) for the different component types, Field components have these additional configurable properties:
+
+#### defaultValue [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `defaultValue`
+<RequiredOrOptional type="optional" default='""' />
+
+<Text>Property type:</Text> `any`
+
+When the form is created via the [useCreateFormStore](/docs/form-store#usecreateformstore), this will be the `value` in the field's state. Additionally, after calling the resetting methods this is what the `value` will be set to in the field's state.
+
+---
+
+#### shouldKeepValueEvenIfHidden [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `shouldKeepValueEvenIfHidden`
+<RequiredOrOptional type="optional" default="false" />
+
+<Text>Property type:</Text> `boolean`
+
+If the component is hidden because of [shouldShowOnlyIf](/docs/form-store#shouldshowonlyif), [shouldShowOnlyIfMediaQueryMatches](/docs/form-store#shouldshowonlyifmediaquerymatches) or [shouldShowOnlyOnScreenSize](/docs/form-store#shouldshowonlyonscreensize), then the value of the field will reset to its initial value.
+
+If this is set to `true`, the value will not be reset.
+
+---
+
+#### shouldIncludeInValuesEvenIfNotShowing [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \>
+`shouldIncludeInValuesEvenIfNotShowing`
+<RequiredOrOptional type="optional" default="false" />
+
+<Text>Property type:</Text> `boolean`
+
+If the component is hidden because of [shouldShowOnlyIf](/docs/form-store#shouldshowonlyif), [shouldShowOnlyIfMediaQueryMatches](/docs/form-store#shouldshowonlyifmediaquerymatches) or [shouldShowOnlyOnScreenSize](/docs/form-store#shouldshowonlyonscreensize), then the value of the field will be excluded from the return value of methods which return the fields' values (ex. [getStepFieldValues](/docs/form-store#getstepfieldvalues), [getAllFieldValues](/docs/form-store#getallfieldvalues)).
+
+If this is set to `true`, the value will be included in the return value of these methods even if the field is hidden.
+
+---
+
+#### validationRules [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `validationRules`
+<RequiredOrOptional type="optional" default="{}" />
+
+<Text>Property type:</Text>
+[FieldValidationRules](/docs/form-store#fieldvalidationrules)
+
+The configurable validation rules are:
+
+- **required**: If the field's value is `"" || null || undefined` (or if the field has [nestedArrayComponents](/docs/form-store#nestedarraycomponents) then `[]` will also yield error), a validation error will be attached to the field.
+- **maxLength**: Useful for `string` and `array` type fields. If the field's value's length is smaller than the value defined here, a validation error will be attached to the field.
+- **minLength**: Useful for `string` and `array` type fields. If the field's value's length is bigger than the value defined here, a validation error will be attached to the field.
+- **exactLength**: Useful for `string` and `array` type fields. If the field's value's length is not equal to the value defined here, a validation error will be attached to the field.
+- **minValue**: Useful for `number` type inputs. If the field's value is bigger than the value defined here, a validation error will be attached to the field.
+- **maxValue**: Useful for `number` type inputs. If the field's value is smaller than the value defined here, a validation error will be attached to the field.
+- **minDate**: Useful for `date` type fields. If the field's value is before the date value defined here, a validation error will be attached to the field.
+- **maxDate**: Useful for `date` type fields. If the field's value is after the date value defined here, a validation error will be attached to the field.
+- **email**: Useful for `string` type fields. If the field's value is not a valid email, a validation error will be attached to the field.
+- **url**: Useful for `string` type fields. If the field's value is not a valid URL, a validation error will be attached to the field.
+- **onlyStrongPasswordCharacters**: Useful for `string` type fields. If the field's value does not contain at least one uppercase letter, one lowercase letter, one number and one special character, a validation error will be attached to the field.
+- **phoneNumber**: Useful for `string` type fields. If the field's value is not a valid phone number, a validation error will be attached to the field. It uses the [phone](https://www.npmjs.com/package/phone) package under the hood and the `options` object can be used to define the country code, validate the mobile prefix and strict detection.
+- **pattern**: Useful for `string` type fields. If the field's value is not matching the pattern, a validation error will be attached to the field.
+- **matchAnotherField**: Useful for confirmation fields that are dependent on another field. If the field's value is not matching the value of the field whose name is the value of this, a validation error will be attached to the field.
+- **mustBeEqualTo**: Useful for confirmation fields that are not dependent on another field (for example to confirm deletion write "DELETE" or for enforcing the checking of a checkbox). If the field's value is not matching this value, a validation error will be attached to the field.
+- **customValidation**: If this function returns a `string`, that will be the `validationError` attached to the field. For `object` or `object[]` type values, only this can do the validation.
+- **customAsyncValidation**: Same as `customValidation` but only for async validations. This will only trigger if all the other sync validation rules passed.
+
+The fields' [validationError](/docs/form-store#validationerror) are an array of strings that the `message` functions of the rules that did not pass validation return. Additionally, you can define the `priority` for each validation rule. The validation errors will be sorted by this priority.
+
+For better user experience you can fine tune the `debounceDurationInMs`, it's especially recommended for the async validation (`asyncDebounceDurationInMs`). This can be defined both on the configuration root level or on step level (in case of multiple step forms), but the field level debounce configuration will always take precedence.
+
+By default the validation triggers only when the field's value changes (or when there is an event like submit or step changing that triggers validation), but you can define the `dependencies` function to trigger the validation when the dependencies change.
+
+If race conditions appear in case of **customValidationAsync**, those are automatically handled (if it gets called multiple times before resolving). You should supply the `abortController` to the request handler (like `fetch`), because in case of race conditions `abort` will be called when necessary.
+
+---
+
+#### nestedArrayComponents [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `nestedArrayComponents`
+<RequiredOrOptional type="optional" default="[]" />
+
+<Text>Property type:</Text>
+[FormComponentConfiguration[]](/docs/form-store#formcomponentconfiguration)
+
+This is used for cases when dynamic nested arrays in which you can add or remove members.
+
+Currently only one level of nesting is supported.
+
+To be able to work more easily with dynamic nested arrays, the `formStore` instance offers methods like [addItemToNestedArrayField](/docs/form-store#additemtonestedarrayfield) and [removeItemFromNestedArrayField](/docs/form-store#removeitemfromnestedarrayfield).
+
+See the [multi-step booking form example's "Personal details" step](/docs/examples#multi-step-form) to learn how it works.
+
+### Wrapper component specific properties
+
+Similarly to UI components, these do not hold values but instead of being rendered in the normal order, they wrap around other components (the components wrapped will be in the `props.children` of this component).
+
+Because of this, when creating them we must use `props.children`.
+
+It's recommended to avoid this type of component if possible and if we use a grid system in our `FormWrapper` internal component, then it will be very rarely needed.
+
+#### wrapping [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `components` \> `wrapping`
+<RequiredOrOptional type="required" />
+
+<Text>Property type:</Text> `"start" | "end"`
+
+In order to define which components this Wrapper component is wrapping, we will need to define the `start` and `end` of the wrapping.
+
+Basically we need to add the component 2 times, once with `wrapping = 'start'` and once with `wrapping = 'end'`.
+
+When defining it with `wrapping = 'end'` we do not need to specify any configuration, only the `type` and `formComponentMappingKey`.
+
+## Events
+
+We can define the important form-specific events that will get called inside methods like [triggerGoToNextStep](/docs/form-store#triggergotonextstep) or [triggerGoToPreviousStep](/docs/form-store#triggergotopreviousstep).
+
+<Text>Property path:</Text>
+`configuration` \> `events` <RequiredOrOptional type="optional" default="{}" />
+
+<Text>Property type:</Text> [Partial\<FormEvents\>](/docs/form-store#formevents)
+
+We have 6 events, for each of them we can define what should happen on triggering the event (usally async), what should happen if this throws an error and what should happen if it succeeds (these cannot be async):
+
+- **submit**: Tied to the [triggerSubmit](/docs/form-store#triggersubmit) method
+- **goToNextStep**: Tied to the [triggerGoToNextStep](/docs/form-store#triggergotonextstep) method
+- **goToPreviousStep**: Tied to the [triggerGoToPreviousStep](/docs/form-store#triggergotopreviousstep) method
+- **goToStep**: Tied to the [triggerGoToStep](/docs/form-store#triggergostep) method
+- **save**: Tied to the [triggerSave](/docs/form-store#triggersave) method
+- **autoSave**: Tied to the [triggerAutoSave](/docs/form-store#triggerautosave) method
+
+## Form/step level validation
+
+We can define validation on the step level (or form level in case of single-step configuration), not just on the field level. This can be useful when the potential validation error should not be tied to a single field, but to the step/form as a whole.
+
+In addition to the fields being validated, this will also be called when step validation is triggered by events defined in [validationOptions](/docs/form-store#validationoptions).
+
+#### validate [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `validate`
+<RequiredOrOptional type="optional" default='() => ""' />
+
+<Text>Property type:</Text> `() => string`
+
+This will be called each time we try to submit the form or go to the next step, but we can also manually trigger it if needed.
+
+If it returns empty string, the validation passes, otherwise the returned string will be the validation error.
+
+Debounce can be set via the `validationOptions` configuration property.
+
+---
+
+#### validateAsync [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `validateAsync`
+<RequiredOrOptional type="optional" default='() => ""' />
+
+<Text>Property type:</Text> `(abortController: AbortController) => Promise<string>`
+
+Same as `validate`, but for async validation. If the sync `validate` function returns a string, then the async `validateAsync` function will not be called.
+
+Sets the `isValidatingStep` and `stepValidationError` states accordingly in the `formStore`.
+
+If there are multiple triggers of this function before resolving, the race conditions are automatically handled. You should supply the `abortController` to the request handler (like `fetch`), because in case of race conditions `abort` will be called when necessary.
+
+Debounce can be set via the [validationOptions.stepAsyncValidationDebounceDurationInMs](/docs/form-store#validationoptions) configuration property.
+
+---
+
+#### validationOptions [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `validationOptions`
+<RequiredOrOptional type="optional" />
+
+```tsx
+default = {
+  shouldFocusFirstInvalidField: true,
+  validateFieldsOn: ['fieldBlur', 'save', 'goToNextStep'],
+  reValidateFieldsOn: ['fieldValueChange'],
+  fieldValidationDebounceDurationInMs: 0,
+  fieldAsyncValidationDebounceDurationInMs: 1000,
+  validateStepOn: ['save', 'goToNextStep'],
+  reValidateStepOn: ['fieldValueChange'],
+  stepValidationDebounceDurationInMs: 0,
+  stepAsyncValidationDebounceDurationInMs: 1000,
+}
+```
+
+<Text>Property type:</Text>
+[ValidationOptions](/docs/form-store#validationoptions)
+
+This configuration object is used to fine tune the validation behaviour of the form. In most cases the defaults offer the best user experience.
+
+Step validation in this configuration means refers to the step configuration's [validate](/docs/form-store#validate) and [validateAsync](/docs/form-store#validateAsync) functions.
+
+- **shouldFocusFirstInvalidField**: If `true`, the first invalid field will be focused when field validations are triggered when validating the step (or form in case of single step config).
+- **validateFieldsOn**: The events that trigger the validation of fields.
+- **reValidateFieldsOn**: When the field's [didTriggerRevalidationMode](/docs/form-store#didtriggerrevalidationmode) is `true`, then in addition to the `validateFieldsOn` events, these events will also trigger the validation of field.
+- **fieldValidationDebounceDurationInMs**: The debounce duration for field validation.
+- **fieldAsyncValidationDebounceDurationInMs**: The debounce duration for async field validation.
+- **validateStepOn**: The events that trigger the validation of the step (or form in case of single step config).
+- **reValidateStepOn**: When [didTriggerRevalidationModeForStep](/docs/form-store#didtriggerrevalidationmodeforstep) is `true`, then in addition to the `validateStepOn` events, these events will also trigger the validation of the step.
+- **stepValidationDebounceDurationInMs**: The debounce duration for step validation.
+- **stepAsyncValidationDebounceDurationInMs**: The debounce duration for async step validation.
+
+If we want to target specific fields with the `(re)validateStepOn` or `(re)validateFieldsOn` then we can use the `excludeFieldNamesOnly` or `includeFieldNamesOnly` properties (see type reference).
+
+If this is defined both on the root and and step level, the step level configuration will override the root level configuration.
+
+## Initial data loading
+
+In many cases our forms don't start empty, but it's prefilled with some information already entered at some point.
+
+#### initialData [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `initialData`
+<RequiredOrOptional type="optional" default="{}" />
+
+<Text>Property type:</Text> `Record<string, any>` | `Promise<Record<string, any>>` | `() => Promise<Record<string, any>>`
+
+We can use this configuration to load remote initial data. It will handle the loading and error states correctly and the object this function returns (the keys should be the field names) will set the initial values of the fields.
+
+While the async function we defined is being resolved, the Internal component `InitialDataLoadingIndicator` will be rendered. If this async function throws an Error, then the Internal component `InitialDataLoadingError` will be rendered.
+
+We can also hard code the initial values of the fields here without any async operation (in this case the loading state will not be triggered).
+
+## Auto saving
+
+Sometimes we want to save the form automatically that triggers on specific events that we can define in the `autoSaveOptions` configuration.
+
+#### autoSaveOptions [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `autoSaveOptions` <RequiredOrOptional type="optional" />
+```tsx
+default = {
+  enabled: false,
+  autoSaveOn: ['fieldValueChange', 'fieldBlur'],
+  autoSaveDebounceDurationInMs: 1000,
+  autoSaveIntervalInMs: null,
+  ignoreValidation: false,
+}
+```
+
+<Text>Property type:</Text> [AutoSaveOptions](/docs/form-store#autosaveoptions)
+
+- **enabled**: If `true`, the auto save will be enabled.
+- **autoSaveOn**: The events that we define here will trigger the [events.onAutoSave](/docs/form-store#events) function. If we want to enable the autoSave only for specific fields, we can use the `excludeFieldNamesOnly` or `includeFieldNamesOnly` properties (see type reference).
+- **autoSaveDebounceDurationInMs**: The debounce duration for auto save.
+- **autoSaveIntervalInMs**: The interval in milliseconds for auto save. If this is not `null` and autoSaveOn contains the value `interval`, the auto save will be triggered in this interval without needing any user action.
+- **ignoreValidation**: If `true`, the auto save will trigger even if the validation of the form is not passing.
+
+## Context [#context-main]
+
+For custom use cases that are not supported out of the box by `react-flexyform`, this provides a flexible state slice that can be subscribed to and modified by any of the form components.
+
+<Text>Property path:</Text>
+`configuration` \> `context` <RequiredOrOptional type="optional" default="{}" />
+
+<Text>Property type:</Text>
+```tsx
+    | Record<string, any>
+    | {
+        value: () => Record<string, any>
+        dependencies?: () => any[]
+      }
+```
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+If defined as a generic object, it will be the initial value of the `context`.
+
+It can also be defined in a dynamic way by providing it an object with a `value` function that returns the parameters and an optional `dependencies` function that will trigger the `value` function when the dependencies change.
+
+## Multiple steps
+
+A common use case is to split a form into multiple steps, for this we have to configure each step in the `steps` array.
+
+### startAtStep [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `startAtStep`
+<RequiredOrOptional type="optional" default="() => name of the first step" />
+
+<Text>Property type:</Text> `() => string`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+When the form mounts (after the [initialData](/docs/form-store#initialdata) is loaded), this function will be called to determine which step to start at.
+
+---
+
+### steps [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps`
+<RequiredOrOptional
+  type="required"
+  extraText=" if the form has multiple steps"
+/>
+
+<Text>Property type:</Text>
+[StepConfiguration](/docs/form-store#stepconfiguration)[]
+
+For each step we can configure some previously mentioned properties:
+
+- [components](/docs/form-store#components)
+- [validate](/docs/form-store#validate)
+- [validateAsync](/docs/form-store#validateasync)
+- [validationOptions](/docs/form-store#validationoptions)
+- [autoSaveOptions](/docs/form-store#autosaveoptions)
+
+Additionally, we have some other configurable properties that help us implement common use cases for multi-step forms.
+
+---
+
+#### name [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `name` <RequiredOrOptional type="required" />
+
+<Text>Property type:</Text> `string`
+
+This will be the identifier of the step if we want to refer to this step (similarly as for the `components` > `name` property) in any dynamic logic we implement.
+
+---
+
+#### shouldSkip [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `shouldSkip`
+<RequiredOrOptional type="optional" default="() => false" />
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+<Text>Property type:</Text> `() => boolean`
+
+This is useful if we want to skip this step when a condition is met. This function is called each time we would navigate to this step to decide if we should skip to the next step instead.
+
+---
+
+#### shouldSkipWhenGoingToNextStep [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `shouldSkipWhenGoingToNextStep`
+<RequiredOrOptional type="optional" default="() => false" />
+
+<Text>Property type:</Text> `() => boolean`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+A more granular versions of the [shouldSkip](/docs/form-store#shouldSkip) functionality which only gets called if we navigated to this step in the forward direction.
+
+---
+
+#### shouldSkipWhenGoingToPreviousStep [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `shouldSkipWhenGoingToPreviousStep`
+<RequiredOrOptional type="optional" default="() => false" />
+
+<Text>Property type:</Text> `() => boolean`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+A more granular versions of the [shouldSkip](/docs/form-store#shouldSkip) functionality which only gets called if we navigated to this step in the backward direction.
+
+---
+
+#### nextStepDestination [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `nextStepDestination`
+<RequiredOrOptional type="optional" default="() => name of the next step" />
+
+<Text>Property type:</Text> `() => string`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+This is useful if we want to implement the jumping to a specific step when the [triggerGoToNextStep](/docs/form-store#triggergotonextstep) is called from this step.
+
+---
+
+#### previousStepDestination [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `previousStepDestination`
+<RequiredOrOptional type="optional" default="() => name of the previous step" />
+
+<Text>Property type:</Text> `() => string`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+This is useful if we want to implement the jumping to a specific step when the [triggerGoToPreviousStep](/docs/form-store#triggergotopreviousstep) is called from this step.
+
+---
+
+#### onMount [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `onMount`
+<RequiredOrOptional type="optional" default="() => {}" />
+
+<Text>Property type:</Text> `() => any`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+This function gets called when the step mounts.
+
+---
+
+#### onUnmount [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `onUnmount`
+<RequiredOrOptional type="optional" default="() => {}" />
+
+<Text>Property type:</Text> `() => any`
+
+[Learn how to access the form store in any configuration property that is a function.](/docs/form-store#accessing-the-form-store-in-functions)
+
+This function gets called when the step unmounts.
+
+---
+
+#### shouldSubmitOnEnter [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `shouldSubmitOnEnter`
+<RequiredOrOptional type="optional" default="false" />
+
+<Text>Property type:</Text> `boolean`
+
+If this is set to `true` the focus is inside a field in this step then by pressing `Enter` the [triggerSubmit](/docs/form-store#triggersubmit) function will be called.
+
+---
+
+#### shouldGoToNextStepOnEnter [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `shouldGoToNextStepOnEnter`
+<RequiredOrOptional type="optional" default="false" />
+
+<Text>Property type:</Text> `boolean`
+
+If this is set to `true` the focus is inside a field in this step then by pressing `Enter` the [triggerGoToNextStep](/docs/form-store#triggergotonextstep) function will be called.
+
+---
+
+#### shouldSaveOnEnter [!toc]
+
+<Text>Property path:</Text>
+`configuration` \> `steps` \> `shouldSaveOnEnter`
+<RequiredOrOptional type="optional" default="false" />
+
+<Text>Property type:</Text> `boolean`
+
+If this is set to `true` the focus is inside a field in this step then by pressing `Enter` the [triggerSave](/docs/form-store#triggersave) function will be called.
+
+## Form store instance properties
+
+We can have access to the `formStore` instance anywhere:
+
+- in the configuration via the `getFormStoreState` function
+- in the form components via the [useParentFormStore](/docs/form-store#useparentformstore) hook
+- anywhere in our React app via the [useCreateFormStore](/docs/form-store#usecreateformstore) and `useFormStore` hooks
+
+Let's see what properties and methods we can access from the `formStore` instance.
+
+#### configuration [!toc]
+
+<Text>Property path:</Text>
+`formStore` \> `configuration`
+
+<Text>Property type:</Text>
+[CreateStoreMultiStepConfiguration](/docs/form-store#createstoremultistepconfiguration)
+
+This is the configuration that we used to create the store with. It can be useful to have access to this if we want to do something based on the configuration.
+
+It's important to note that even though the original configuration was for a single step form without defining the `steps`, this will always be using `steps` (it will have one step in case of a single step form).
+
+Also, even if the `name` was not provided for some of the components, the auto-generated `name` properties will be available.
+
+---
+
+#### context [!toc]
+
+<Text>Property path:</Text>
+`formStore` \> `context`
+
+<Text>Property type:</Text> `Record<string, any>`
+
+For custom use cases that are not supported out of the box by `react-flexyform`, this provides a flexible state slice that can be subscribed to and modified.
+
+---
+
+#### setContext [!toc]
+
+<Text>Property path:</Text>
+`formStore` \> `setContext`
+
+<Text>Property type:</Text> `(context: Record<string, any>) => void`
+
+The setter of the [context](/docs/form-store#context) property. Does not completely replace the current value, it updates only the properties defined in the `context` argument.
+
+---
+
+#### initialData [!toc]
+
+<Text>Property path:</Text>
+`formStore` \> `initialData`
+
+<Text>Property type:</Text> `{ [fieldName: string]: any } | null`
+
+The initial values of the fields when the form was mounted.
+
+In the case in which we supplied an async function to the [initialData](/docs/form-store#initialdata) configuration, then we will be able to access its resolved value through this property.
+
+The value is `null` only if the initial data is loading.
+
+---
+
+#### isLoadingInitialData [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isLoadingInitialData`
+
+<Text>Property type:</Text> `boolean`
+
+Only relevant in case there is an async function supplied to the [initialData](/docs/form-store#initialdata) configuration.
+
+If this is `true` the form will render the [InitialDataLoadingIndicator](/docs/index#initialdataloadingindicator) internal form component.
+
+This value is modified by the `isLoading` prop on the [\<Form\>](/docs/form-store#form) component or by the [triggerInitialDataLoading](/docs/form-store#triggerinitialdataloading) method of the `formInstance`.
+
+---
+
+#### initialDataLoadingError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `initialDataLoadingError`
+
+<Text>Property type:</Text> `Error | null`
+
+Only relevant in case there is an async function supplied to the [initialData](/docs/form-store#initialdata) configuration.
+
+If there is an error, the form will render the [InitialDataLoadingError](/docs/index#initialdataloadingerror) internal form component.
+
+This value is modified by the `loadingError` prop on the [\<Form\>](/docs/form-store#form) component or by the [triggerInitialDataLoading](/docs/form-store#triggerinitialdataloading) method of the `formInstance`.
+
+---
+
+#### triggerInitialDataLoading [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerInitialDataLoading`
+
+<Text>Property type:</Text> `() => Promise<void>`
+
+This is useful if we want to implement retry functionality in the [InitialDataLoadingError](/docs/index#initialdataloadingerror) internal form component.
+
+Changes [isLoadingInitialData](/docs/form-store#isloadinginitialdata), [initialDataLoadingError](/docs/form-store#initialdataloadingerror)` and [initialData](/docs/form-store#initialdata).
+
+---
+
+#### currentStepName [!toc]
+
+<Text>Property path:</Text> `formStore` \> `currentStepName`
+
+<Text>Property type:</Text> `string`
+
+The [name](/docs/form-store#name) identifier of the current step.
+
+---
+
+#### stepHistory [!toc]
+
+<Text>Property path:</Text> `formStore` \> `stepHistory`
+
+<Text>Property type:</Text> `string[]`
+
+Contains the [name](/docs/form-store#name) identifier of the steps that were visited.
+
+---
+
+#### lastDirection [!toc]
+
+<Text>Property path:</Text> `formStore` \> `lastDirection`
+
+<Text>Property type:</Text> `'idle' | 'previous' | 'next'`
+
+Useful if we want to implement animations in multi step forms when switching between steps.
+
+The `idle` value is only set when there were no other steps visited yet, just the initial step.
+
+---
+
+#### triggerStepValidation [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerStepValidation`
+
+<Text>Property type:</Text> `() => Promise<boolean>`
+
+Runs the [validate](/docs/form-store#validate) and [validateAsync](/docs/form-store#validateasync) logic defined on the step. If the sync validation fails, the async one does not get run.
+
+<Callout type="warn">
+  It does not trigger field validations. For that we can use the
+  [triggerFieldValidationsForStep](/docs/form-store#triggerfieldvalidationsforstep)
+  method.
+</Callout>
+
+Sets [isValidatingStep](/docs/form-store#isvalidatingstep), [stepValidationError](/docs/form-store#stepvalidationerror) and [didTriggerRevalidationModeForStep](/docs/form-store#didtriggerrevalidationmodeforstep) on the `formStore` instance.
+
+---
+
+#### isValidatingStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isValidatingStep`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerStepValidation](/docs/form-store#triggerstepvalidation) method.
+
+---
+
+#### stepValidationError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `stepValidationError`
+
+<Text>Property type:</Text> `string`
+
+Set by the [triggerStepValidation](/docs/form-store#triggerstepvalidation) method.
+
+---
+
+#### didTriggerRevalidationModeForStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `didTriggerRevalidationModeForStep`
+
+<Text>Property type:</Text> `boolean`
+
+Starts as `false` and gets set to `true` if the step validation fails by the events that trigger step validation defined in [validationOptions.validateStepOn](/docs/form-store#validationoptions).
+
+If this is `true` then the [validationOptions.reValidateStepOn](/docs/form-store#validationoptions) events will also trigger the step validation.
+
+---
+
+#### eventHistory [!toc]
+
+<Text>Property path:</Text> `formStore` \> `eventHistory`
+
+<Text>Property type:</Text> `{
+  stepName: string
+  type: 'goToNextStep' | 'goToPreviousStep' | 'goToStep' | 'save' | 'submit'
+}`
+
+Contains the history of the events triggered and the step they got triggered on.
+
+---
+
+#### resetFormState [!toc]
+
+<Text>Property path:</Text> `formStore` \> `resetFormState`
+
+<Text>Property type:</Text> `() => void`
+
+Resets the `formStore` instance's state to its initial values.
+
+---
+
+#### getIsStepDirty [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsStepDirty`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if there were any changes compared to the initial values in any of the fields from the step, otherwise returns `false`.
+
+---
+
+#### getIsStepTouched [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsStepTouched`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if there was user input (or `onBlur` event trigger) in any of the fields from the step (even if the values are equal to the initial values), otherwise returns `false`.
+
+---
+
+#### getIsValidatingAnything [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsValidatingAnything`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if the any of the fields are validating or the step is validating, otherwise returns `false`.
+
+---
+
+#### getFirstStepNameWithRequiredFieldsNotCompleted [!toc]
+
+<Text>Property path:</Text> `formStore` \>
+`getFirstStepNameWithRequiredFieldsNotCompleted`
+
+<Text>Property type:</Text> `() => string`
+
+Returns the step name of the first step that does not have all required fields completed. Can be useful for determining at which step to start at after initial data fetching.
+
+---
+
+#### getCurrentStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getCurrentStep`
+
+<Text>Property type:</Text> `() => Step`
+
+---
+
+#### getStepByName [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getStepByName`
+
+<Text>Property type:</Text> `(stepName: string) => Step`
+
+---
+
+#### getStepByIndex [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getStepByIndex`
+
+<Text>Property type:</Text> `(stepIndex: number) => Step`
+
+---
+
+#### getNextStepName [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getNextStepName`
+
+<Text>Property type:</Text> `(stepName?: string) => string`
+
+---
+
+#### getPreviousStepName [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getPreviousStepName`
+
+<Text>Property type:</Text> `(stepName?: string) => string`
+
+---
+
+#### getStepIndexByName [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getStepIndexByName`
+
+<Text>Property type:</Text> `(stepName: string) => number`
+
+---
+
+#### getStepNameByIndex [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getStepNameByIndex`
+
+<Text>Property type:</Text> `(stepIndex: number) => string`
+
+---
+
+#### getCurrentStepIndex [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getCurrentStepIndex`
+
+<Text>Property type:</Text> `() => number`
+
+---
+
+#### getFirstStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getCurrentStepIndex`
+
+<Text>Property type:</Text> `() => Step`
+
+---
+
+#### getLastStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getCurrentStepIndex`
+
+<Text>Property type:</Text> `() => Step`
+
+---
+
+#### getIsLastStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsLastStep`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if the current step is the last step.
+
+---
+
+#### getIsFirstStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsFirstStep`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if the current step is the first step.
+
+---
+
+#### getFieldNamesByStepIndex [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getFieldNamesByStepIndex`
+
+<Text>Property type:</Text> `(stepIndex: number) => string[]`
+
+---
+
+#### getFieldNamesByStepName [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getFieldNamesByStepName`
+
+<Text>Property type:</Text> `(stepName: string) => string[]`
+
+---
+
+#### fields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `fields`
+
+<Text>Property type:</Text>
+```tsx
+type Field = {
+  id: string
+  name: string
+  stepName: string
+  value: any
+  initialValue: any
+  stepInitialValue: any
+  previousValue: any
+  isTouched: boolean
+  isDirty: boolean
+  isValidating: boolean
+  validationError: string[] | null
+  didTriggerRevalidationMode: boolean
+  lastValidatedValue: any
+}
+type Fields = { [fieldName: string]: Field }
+```
+
+The state of all the form fields are stored here, but there are better ways of interracting with them than accessing them directly from this object.
+
+- **id**: You should assign this to the field's main focusable element for the focusing features to work
+- **name**: The name of the field (auto-generated in case if not defined in the configuration)
+- **stepName**: The name of the step the field is in
+- **value**: The current value of the field
+- **initialValue**: The initial value of the field when the form was mounted
+- **stepInitialValue**: The initial value of the field in the step when the step was mounted
+- **previousValue**: The value of the field before the last change
+- **isTouched**: `true` if there was any user input (or onBlur event triggered), even if the value remains equal to the initial value - gets reset when step change occurs
+- **isDirty**: `true` if the field's value is different from the initial value - gets reset when step change occurs
+- **isValidating**: `true` if the field is validating
+- **validationError**: The validation error of the field
+- **didPassAsyncValidation**: `true` if the [validationRules.customValidationAsync](/docs/form-store#customvalidationasync) ran and passed
+- **didTriggerRevalidationMode**: Starts as `false` and gets set to `true` if the field's validation failed. After that in addition to the [validationOptions.validateFieldsOn](/docs/form-store#validationoptions) events, the [validationOptions.reValidateFieldsOn](/docs/form-store#validationoptions) events will also trigger the field's validation. If the field gets validated and passes validation, it will get set to `false`.
+- **lastValidatedValue**: The value of the field when the last validation was triggered
+
+---
+
+#### setFieldValue [!toc]
+
+<Text>Property path:</Text> `formStore` \> `setFieldValue`
+
+<Text>Property type:</Text> `(fieldName: string, value: any, options\?: \{ shouldSetIsDirty?: boolean; shouldSetIsTouched?: boolean; shouldTriggerValidation?: boolean; \}) => void`
+
+A method to imperatively change the `value` property of a field (also sets `previousValue`). By default it will not trigger validation or set the `isDirty` and `isTouched` states, but this can be modified in the `options` parameter.
+
+---
+
+#### triggerFieldBlur [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerFieldBlur`
+
+<Text>Property type:</Text> `(fieldName: string) => void`
+
+- sets the `isTouched` property
+- triggers field validation if it's set in the [validationOptions](/docs/form-store#validationoptions)
+- triggers auto saving if it's set in the [autoSaveOptions](/docs/form-store#autosaveoptions)
+
+This should be used in the `onBlur` event handler of the field.
+
+---
+
+#### triggerFieldChange [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerFieldChange`
+
+<Text>Property type:</Text> `(fieldName: string, value: any, options?: { shouldDisableHtmlEventHandling?: boolean }) => void`
+
+- sets the `isTouched`, `isDirty`, `value` (also `previousValue`) properties
+- triggers field validation if it's set in the [validationOptions](/docs/form-store#validationoptions)
+- triggers auto saving if it's set in the [autoSaveOptions](/docs/form-store#autosaveoptions)
+
+By default if the `value` supplied to this method extends the html event types of `{ target: any }` or `{ checked: boolean }`, then the field's `value` will be set to `event.target.value` or `event.target.checked` respectively. If we want to disable this behaviour, we can set the `shouldDisableHtmlEventHandling` option to `true`.
+
+This should be used in the `onChange` event handler of the field.
+
+---
+
+#### addItemToNestedArrayField [!toc]
+
+<Text>Property path:</Text> `formStore` \> `addItemToNestedArrayField`
+
+<Text>Property type:</Text> `(fieldName: string, defaultValues?: { [nestedFieldName: string]: any }) => void`
+
+Appends a new item to a nested array field. Follows the same logic as the [triggerFieldChange](/docs/form-store#triggerfieldchange) method.
+
+---
+
+#### removeItemFromNestedArrayField [!toc]
+
+<Text>Property path:</Text> `formStore` \> `removeItemFromNestedArrayField`
+
+<Text>Property type:</Text> `(fieldName: string, indexToRemove: number) => void`
+
+Removes an item from the nested array field. Follows the same logic as the [triggerFieldChange](/docs/form-store#triggerfieldchange) method.
+
+---
+
+#### triggerFieldFocus [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerFieldFocus`
+
+<Text>Property type:</Text> `(fieldName: string) => boolean`
+
+Focuses the field and returns `true` if the field was focused successfully.
+
+---
+
+#### resetField [!toc]
+
+<Text>Property path:</Text> `formStore` \> `resetField`
+
+<Text>Property type:</Text> `(fieldName: string, options?: { shouldKeepValue?: boolean; shouldKeepIsDirty?: boolean; shouldKeepIsTouched?: boolean; shouldKeepValidationError?: boolean }) => void`
+
+Resets the states of field.
+
+We can control if we do not want to reset any of the states with the `options` argument.
+
+---
+
+#### resetFieldsForStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `resetFieldsForStep`
+
+<Text>Property type:</Text> `(stepName?: string, options?: { shouldKeepValue?: boolean; shouldKeepIsDirty?: boolean; shouldKeepIsTouched?: boolean; shouldKeepValidationError?: boolean }) => void`
+
+Calls [resetField](/docs/form-store#resetfield) for all the fields in the step that matches the `stepName` argument, passing the `options` to them. If `stepName` is ommited, the step will default to the current step.
+
+---
+
+#### triggerFieldValidation [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerFieldValidation`
+
+<Text>Property type:</Text> `(fieldName: string, options?: { shouldFocusInvalidField?: boolean }) => Promise<boolean>`
+
+Runs the [validationRules](/docs/form-store#validationrules) we defined field's configuration.
+
+Returns `true` if the validation is successfully passed, returns `false` if there is any validation error.
+
+If the `shouldFocusInvalidField` option is set to `true` then the field will be focused if there is a validation error.
+
+If the sync validation fails, the async validation does not get run.
+
+Sets [isValidating](/docs/form-store#fields) (only if `validateAsync` is being run) and [validationError](/docs/form-store#fields) properties in the field's state.
+
+---
+
+#### triggerMultipleFieldsValidations [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerMultipleFieldsValidations`
+
+<Text>Property type:</Text> `(fieldNames: string[], options?: { shouldFocusInvalidField?: boolean }) => Promise<boolean>`
+
+Calls [triggerFieldValidation](/docs/form-store#triggerfieldvalidation) for multiple fields at the same time.
+
+---
+
+#### triggerFieldValidationsForStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerFieldValidationsForStep`
+
+<Text>Property type:</Text> `(options?: { shouldFocusInvalidField?: boolean }) => Promise<boolean>`
+
+Calls [triggerFieldValidation](/docs/form-store#triggerfieldvalidation) for all the fields in the current step.
+
+---
+
+#### resetValidationErrorForFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `resetValidationErrorForFields`
+
+<Text>Property type:</Text> `(fieldNames: string[]) => void`
+
+Sets the [validationError](/docs/form-store#fields) to `null` in the fields' states that match the `fieldNames` argument.
+
+---
+
+#### resetFieldValidationErrorsForStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `resetFieldValidationErrorsForStep`
+
+<Text>Property type:</Text> `() => void`
+
+Sets the `validationError` to `null` in all the fields' states in the current step.
+
+---
+
+#### getFieldValue [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getFieldValue`
+
+<Text>Property type:</Text> `(fieldName: string) => any`
+
+Returns `undefined` if no field is registered with the `fieldName` argument, otherwise returns the `value` of the field.
+
+---
+
+#### getStepFieldValues [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getStepFieldValues`
+
+<Text>Property type:</Text> `(stepName?: string) => { [fieldName: string]: any } | undefined`
+
+Returns the field values from a specific step that are showing.
+
+If `stepName` is not defined it will default to the current step name.
+
+Returns `undefined` if there is no step that matches the `stepName` argument.
+
+---
+
+#### getAllFieldValues [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getAllFieldValues`
+
+<Text>Property type:</Text> `() => { [fieldName: string]: any }`
+
+Returns all field values from all steps that are showing.
+
+---
+
+#### getField [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getField`
+
+<Text>Property type:</Text> `(fieldName: string) => Field | undefined`
+
+Returns the whole state of the field if it exists, otherwise returns `undefined`.
+
+---
+
+#### getNestedArrayItemField [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getNestedArrayItemField`
+
+<Text>Property type:</Text> `(params: { parentFieldName: string; fieldName: string; nestedItemIndex: number }) => Field | undefined`
+
+Returns the whole state of a specific nested array item field if it exists, otherwise returns `undefined`.
+
+---
+
+#### getIsFormComponentShowing [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsFormComponentShowing`
+
+<Text>Property type:</Text> `(formComponentName: string, options?: { shouldConsiderScreenSize?: boolean }) => boolean`
+
+It returns `true` or `false` based on the form component configuration's [shouldShowOnlyIf](/docs/form-store#shouldshowonlyif), [shouldShowOnlyIfMediaQueryMatches](/docs/form-store#shouldshowonlyifmediaquerymatches) and [shouldShowOnlyOnScreenSize](/docs/form-store#shouldshowonlyonscreensize) properties.
+
+We can opt out of the [shouldShowOnlyIfMediaQueryMatches](/docs/form-store#shouldshowonlyifmediaquerymatches) and [shouldShowOnlyOnScreenSize](/docs/form-store#shouldshowonlyonscreensize) logic by setting the `shouldConsiderScreenSize` option to `false`.
+
+---
+
+#### getStepFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getStepFields`
+
+<Text>Property type:</Text> `(stepName?: string) => { [fieldName: string], Field }`
+
+Gets the state of the fields in a specific step that are showing.
+
+If the `stepName` is not defined, it will default to the current step.
+
+---
+
+#### getAllFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getAllFields`
+
+<Text>Property type:</Text> `() => { [fieldName: string], Field }`
+
+Gets the state of the fields from all steps that are showing.
+
+---
+
+#### getDirtyFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getDirtyFields`
+
+<Text>Property type:</Text> `() => FormFieldConfiguration[]`
+
+Returns an array with all the fields whose `isDirty` property is `true`.
+
+---
+
+#### getTouchedFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getTouchedFields`
+
+<Text>Property type:</Text> `() => FormFieldConfiguration[]`
+
+Returns an array with all the fields whose `isTouched` property is `true`.
+
+---
+
+#### getInvalidFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getInvalidFields`
+
+<Text>Property type:</Text> `() => FormFieldConfiguration[]`
+
+Returns an array with all the fields whose `validationError` property is not `null`.
+
+---
+
+#### getRequiredFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getRequiredFields`
+
+<Text>Property type:</Text> `() => FormFieldConfiguration[]`
+
+Returns an array with all the fields whose [validationRules.required](docs/form-store#validationrules) property is defined.
+
+---
+
+#### getRequiredFieldsForStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getRequiredFieldsForStep`
+
+<Text>Property type:</Text> `(stepName?: string) => FormFieldConfiguration[]`
+
+Returns an array with all the fields whose [validationRules.required](docs/form-store#validationrules) property is defined for the given `stepName` (defaults to the `currentStepName`).
+
+---
+
+#### getIsValidatingFields [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsValidatingFields`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if any field is validating.
+
+---
+
+#### getIsAnyFieldInvalid [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsAnyFieldInvalid`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if any field's `validationError` is not null.
+
+---
+
+#### getIsAnyFieldFocused [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getIsAnyFieldFocused`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if any of the fields are focused. For this to work, you must assign the field's [id](/docs/form-store#field) property to the field's focusable input element.
+
+---
+
+#### getFieldValidationError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getFieldValidationError`
+
+<Text>Property type:</Text> `(fieldName: string) => string[] | null`
+
+Returns the `validationError` of the field.
+
+---
+
+#### componentParams [!toc] [#componentparams-form-store]
+
+<Text>Property path:</Text> `formStore` \> `componentParams`
+
+<Text>Property type:</Text>
+```tsx
+type ComponentParams = { 
+  [componentName: string]: {
+        value: Record<string, any>
+        isLoading: boolean
+        loadingError: Error | null
+    }
+  }
+```
+
+All the [componentParams](/docs/form-store#componentparams) that are set in the configuration are stored here.
+
+In case of async component params, the `isLoading` and `loadingError` properties will be set accordingly.
+
+---
+
+#### getComponentParams [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getComponentParams`
+
+<Text>Property type:</Text> `(componentName: string) => Record<string, any> | undefined`
+
+Gets the `value` property of the component params for the `componentName`.
+
+---
+
+#### getAreComponentParamsLoading [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getAreComponentParamsLoading`
+
+<Text>Property type:</Text> `(componentName: string) => true
+
+Gets the `isLoading` property of the component params for the `componentName`.
+
+---
+
+#### getComponentParamsLoadingError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getComponentParamsLoadingError`
+
+<Text>Property type:</Text> `(componentName: string) => Error | null`
+
+Gets the `loadingError` property of the component params for the `componentName`.
+
+---
+
+#### setComponentParams [!toc]
+
+<Text>Property path:</Text> `formStore` \> `setComponentParams`
+
+<Text>Property type:</Text> `(componentName: string, componentParams: Record<string, any>) => void`
+
+Sets the `value` property of the component params for the `componentName`. Does not completely replace the current value, it updates only the properties defined in the `componentParams` argument.
+
+---
+
+#### triggerDynamicComponentParams [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerDynamicComponentParams`
+
+<Text>Property type:</Text> `(componentName: string) => Promise<void>`
+
+Triggers the dynamic component params function for the `componentName`. Sets `isLoading` and `loadingError` for the [componentParams](/docs/form-store#componentparams-form-store) accordingly.
+
+---
+
+#### triggerAllDynamicComponentParamsForStep [!toc]
+
+<Text>Property path:</Text> `formStore` \>
+`triggerAllDynamicComponentParamsForStep`
+
+<Text>Property type:</Text> `() => Promise<void>`
+
+Runs [triggerDynamicComponentParams](/docs/form-store#triggerdynamiccomponentparams) for all the components in the current step.
+
+---
+
+#### getAreAnyComponentParamsLoading [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getAreAnyComponentParamsLoading`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if any of the component params are loading.
+
+---
+
+#### getAreAnyComponentParamsLoadingErrors [!toc]
+
+<Text>Property path:</Text> `formStore` \>
+`getAreAnyComponentParamsLoadingErrors`
+
+<Text>Property type:</Text> `() => boolean`
+
+Returns `true` if any of the component params have loading error.
+
+---
+
+#### getComponentsWithComponentParamsLoadingError [!toc]
+
+<Text>Property path:</Text> `formStore` \>
+`getComponentsWithComponentParamsLoadingError`
+
+<Text>Property type:</Text> `() => FormComponentConfiguration[]`
+
+Returns the [FormComponentConfiguration](/docs/form-store#formcomponentconfiguration) of all the components that have component params loading error.
+
+---
+
+#### getComponentConfiguration [!toc]
+
+<Text>Property path:</Text> `formStore` \> `getComponentConfiguration`
+
+<Text>Property type:</Text> `(componentName: string) =>
+FormComponentConfiguration | undefined`
+
+Returns the [FormComponentConfiguration](/docs/form-store#formcomponentconfiguration) of the component.
+
+---
+
+#### triggerGoToNextStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerGoToStep`
+
+<Text>Property type:</Text> `(params?: { onGoToNextStep?: () => Promise<any> | any; onGoToNextStepError?: () => any; }) => Promise<void>`
+
+Use this to go to the next step.
+
+The following sequence happens when calling this function:
+
+- Triggers all the field validations and step validation if configured in the [validationOptions](/docs/form-store#validationoptions). If there are validation errors, then it will not navigate to the step.
+
+If there are no validation errors, then:
+
+- Calls the [events.onGoToNextStep](/docs/form-store#events) function (can be overriden by defining `onGoToNextStep` in the arguments) and sets [isChangingStep](/docs/form-store#ischangingstep) and [stepChangeError](/docs/form-store#stepchangeerror) if the function is asynchronous
+- If `onGoToNextStep` throws an error then if provided the [events.onGoToNextStepError](/docs/form-store#events) (can be overriden by defining `onGoToNextStepError` in the arguments) function gets called
+- If `onGoToNextStep` was successful then if provided the [events.onGoToNextStepSuccess](/docs/form-store#events) (can be overriden by defining `onGoToNextStepSuccess` in the arguments) function gets called
+- Sets the [currentStepName](/docs/form-store#currentstepname) to the previous step considering the [shouldSkipWhenGoingToNextStep](/docs/form-store#shouldskipwhengoingtonextstep), [shouldSkipIf](/docs/form-store#shouldskipif) and [nextStepDestination](/docs/form-store#nextstepdestination) configurations.
+- Resets the fields' [isDirty](/docs/form-store#fields) and [isTouched](/docs/form-store#fields) properties
+
+---
+
+#### triggerGoToPreviousStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerGoToPreviousStep`
+
+<Text>Property type:</Text> `(params?: { onGoToPreviousStep?: () => Promise<any> | any, onGoToPreviousStepError?: () => any, onGoToPreviousStepSuccess?: () => any, shouldKeepFieldValues?: boolean; }) => Promise<void>`
+
+Use this to go to the previous step.
+
+The following sequence happens when calling this function:
+
+- Triggers all the field validations and step validation if configured in the [validationOptions](/docs/form-store#validationoptions). If there are validation errors, then it will not navigate to the step.
+
+If there are no validation errors, then:
+
+- Calls the [events.onGoToPreviousStep](/docs/form-store#events) function (can be overriden by defining `onGoToPreviousStep` in the arguments) and sets [isChangingStep](/docs/form-store#ischangingstep) and [stepChangeError](/docs/form-store#stepchangeerror) if the function is asynchronous
+- If `onGoToPreviousStep` throws an error then if provided the [events.onGoToPreviousStepError](/docs/form-store#events) (can be overriden by defining `onGoToPreviousStepError` in the arguments) function gets called
+- If `onGoToPreviousStep` was successful then if provided the [events.onGoToPreviousStepSuccess](/docs/form-store#events) (can be overriden by defining `onGoToPreviousStepSuccess` in the arguments) function gets called
+- Sets the [currentStepName](/docs/form-store#currentstepname) to the previous step considering the [shouldSkipWhenGoingToPreviousStep](/docs/form-store#shouldskipwhengoingtopreviousstep), [shouldSkipIf](/docs/form-store#shouldskipif) and [previousStepDestination](/docs/form-store#previousstepdestination) configurations.
+- By default it resets the values of the step you navigated back from unless the `shouldKeepFieldValues` is set to `true`
+- Resets the fields' [isDirty](/docs/form-store#fields) and [isTouched](/docs/form-store#fields) properties
+
+---
+
+#### triggerGoToStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerGoToStep`
+
+<Text>Property type:</Text> `(params: { stepName: string, onGoToStep?: () => Promise<any> | any, onGoToStepError?: () => any, onGoToStepSuccess?: () => any }) => Promise<void>`
+
+Use this to navigate between steps.
+
+The following sequence happens when calling this function:
+
+- Triggers all the field validations and step validation if configured in the [validationOptions](/docs/form-store#validationoptions)
+
+If there are no validation errors, then:
+
+- Calls the [events.onGoToStep](/docs/form-store#events) function (can be overriden by defining `onGoToStep` in the arguments) and sets [isChangingStep](/docs/form-store#ischangingstep) and [stepChangeError](/docs/form-store#stepchangeerror) if the function is asynchronous
+- If `onGoToStep` throws an error then if provided the [events.onGoToStepError](/docs/form-store#events) (can be overriden by defining `onGoToStepError` in the arguments) function gets called
+- If `onGoToStep` was successful then if provided the [events.onGoToStepSuccess](/docs/form-store#events) (can be overriden by defining `onGoToStepSuccess` in the arguments) function gets called
+- Sets the [currentStepName](/docs/form-store#currentstepname) to the `stepName` from the params considering the [shouldSkipWhenGoingToNextStep](/docs/form-store#shouldskipwhengoingtonextstep), [shouldSkipIf](/docs/form-store#shouldskipif) and [nextStepDestination](/docs/form-store#nextstepdestination) configurations (or the corrsponding previous step alternatives if the `stepName` is before the current step).
+- Resets the fields' [isDirty](/docs/form-store#fields) and [isTouched](/docs/form-store#fields) properties
+
+---
+
+#### isChangingStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isChangingStep`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerGoToNextStep](/docs/form-store#triggergotonextstep), [triggerGoToPreviousStep](/docs/form-store#triggergotopreviousstep) and [triggerGoToStep](/docs/form-store#triggergotostep) method.
+
+---
+
+#### isGoingToNextStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isGoingToNextStep`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerGoToNextStep](/docs/form-store#triggergotonextstep) method.
+
+---
+
+#### isGoingToPreviousStep [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isGoingToPreviousStep`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerGoToPreviousStep](/docs/form-store#triggergotopreviousstep) method.
+
+---
+
+#### stepChangeError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `stepChangeError`
+
+<Text>Property type:</Text> `Error | null`
+
+Set by the [triggerGoToNextStep](/docs/form-store#triggergotonextstep), [triggerGoToPreviousStep](/docs/form-store#triggergotopreviousstep) and [triggerGoToStep](/docs/form-store#triggergotostep) methods.
+
+---
+
+#### triggerSave [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerSave`
+
+<Text>Property type:</Text> `(params?: { onSave?: (abortController: AbortController) => Promise<any> | any, onSaveError?: () => any, onSaveSuccess?: () => any }) => Promise<void>`
+
+Useful for implementing saving without submitting.
+
+The following sequence happens when calling this function:
+
+- Triggers all the field validations and step validation if configured in the [validationOptions](/docs/form-store#validationoptions)
+
+If there are no validation errors, then:
+
+- Calls the [events.onSave](/docs/form-store#events) function (can be overriden by defining `onSave` in the arguments) and sets [isSaving](/docs/form-store#issaving) and [saveError](/docs/form-store#saveerror) if the function is asynchronous
+- On every field in the current step sets the [isDirty](/docs/form-store#fields) and [isTouched](/docs/form-store#fields) properties to `true` and the [stepInitialValue](/docs/form-store#fields) the current value of the field (this is useful if we want to disable the 'Save' button in case the form was not modified)
+- If `onSave` throws an error then if provided the [events.onSaveError](/docs/form-store#events) (can be overriden by defining `onSaveError` in the arguments) function gets called
+- If `onSave` was successful then if provided the [events.onSaveSuccess](/docs/form-store#events) (can be overriden by defining `onSaveSuccess` in the arguments) function gets called
+
+If there are multiple triggers of this function before resolving, the race conditions are automatically handled. You should supply the `abortController` to the request handler (like `fetch`), because in case of race conditions `abort` will be called when necessary.
+
+---
+
+#### isSaving [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isSaving`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerSave](/docs/form-store#triggersave) method.
+
+---
+
+#### saveError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `saveError`
+
+<Text>Property type:</Text> `Error | null`
+
+Set by the [triggerSave](/docs/form-store#triggersave) method.
+
+---
+
+#### triggerAutoSave [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerAuto`
+
+<Text>Property type:</Text> `(params: { onAutoSave?: (abortController: AbortController) => Promise<any> | any, onAutoSaveError?: () => any, onAutoSaveSuccess?: () => any }) => Promise<void>`
+
+- Calls the [events.onAutoSave](/docs/form-store#events) or [autoSaveOptions.onAutoSave](/docs/form-store#autosaveoptions) function (can be overriden by defining `onAutoSave` in the arguments) and sets [isAutoSaving](/docs/form-store#isautosaving) and [autoSaveError](/docs/form-store#autosaveerror) if the function is asynchronous
+- If `onAutoSave` throws an error then if provided the [events.onAutoSaveError](/docs/form-store#events) or [autoSaveOptions.onAutoSaveError](/docs/form-store#autosaveoptions) (can be overriden by defining `onAutoSaveError` in the arguments) function gets called
+- If `onAutoSave` was successful then if provided the [events.onAutoSaveSuccess](/docs/form-store#events) or [autoSaveOptions.onAutoSaveSuccess](/docs/form-store#autosaveoptions) (can be overriden by defining `onAutoSaveSuccess` in the arguments) function gets called
+
+Sets [isAutoSaving] and [autoSaveError] if the function is asynchronous.
+
+If there are multiple triggers of this function before resolving, the race conditions are automatically handled. You should supply the `abortController` to the request handler (like `fetch`), because in case of race conditions `abort` will be called when necessary.
+
+Debounce can be set via the [autoSaveOptions.autoSaveDebounceDurationInMs](/docs/form-store#autosaveoptions) configuration property.
+
+---
+
+#### isAutoSaving [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isSaving`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerAutoSave](/docs/form-store#triggerautosave) method.
+
+---
+
+#### autoSaveError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `saveError`
+
+<Text>Property type:</Text> `Error | null`
+
+Set by the [triggerAutoSave](/docs/form-store#triggerautosave) method.
+
+---
+
+#### triggerSubmit [!toc]
+
+<Text>Property path:</Text> `formStore` \> `triggerSubmit`
+
+<Text>Property type:</Text> `(params?: { onSubmit?: () => Promise<any> | any, onSubmitError?: () => any, onSubmitSuccess?: () => any }) => Promise<void>`
+
+Useful for implementing form submission.
+
+The following sequence happens when calling this function:
+
+- Triggers all the field validations and step validation (cannot be opted out from)
+
+If there are no validation errors, then:
+
+- Calls the [events.onSubmit](/docs/form-store#events) function (can be overriden by defining `onSubmit` in the arguments) and sets [isSubmitting](/docs/form-store#issubmitting) and [submitError](/docs/form-store#submiterror) if the function is asynchronous
+- If `onSubmit` throws an error then if provided the [events.onSubmitError](/docs/form-store#events) (can be overriden by defining `onSubmitError` in the arguments) function gets called
+- If `onSubmit` was successful then if provided the [events.onSubmitSuccess](/docs/form-store#events) (can be overriden by defining `onSubmitSuccess` in the arguments) function gets called
+
+---
+
+#### isSubmitting [!toc]
+
+<Text>Property path:</Text> `formStore` \> `isSubmitting`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerSubmit](/docs/form-store#triggersubmit) method.
+
+---
+
+#### submitError [!toc]
+
+<Text>Property path:</Text> `formStore` \> `submitError`
+
+<Text>Property type:</Text> `Error | null`
+
+Set by the [triggerSubmit](/docs/form-store#triggersubmit) method.
+
+---
+
+#### didSubmitSuccessfully [!toc]
+
+<Text>Property path:</Text> `formStore` \> `didSubmitSuccessfully`
+
+<Text>Property type:</Text> `boolean`
+
+Set by the [triggerSubmit](/docs/form-store#triggersubmit) method.
+
+## Hooks
+
+We can access and manage state in a convenient way in dynamic form components through hooks.
+
+#### useCreateFormStore [!toc]
+
+<Text>Hook type:</Text>
+```tsx
+type UseCreateFormStore = (
+    formStoreKey: string,
+    configuration:
+      | CreateStoreConfiguration
+      | ((getFormStore: () => FormStore) => CreateStoreConfiguration),
+    options?: { resetStoreOnMount?: boolean }
+  ) => FormStore
+```
+
+This hook is used to create a new `formStore` instance.
+
+We can use the `formStoreKey` to refer to this form store anywhere in our app by supplying it to the [useFormStore](/docs/form-store#useformstore) hook.
+
+If the `resetStoreOnMount` option is set to `false`, the form store will not reset its state when a [\<Form\>](/docs/form-store#form) component is mounted again with the `formStore` instance with the given `formStoreKey`.
+
+---
+
+#### useCreateFormStoreAsync [!toc]
+
+<Text>Hook type:</Text>
+```tsx
+type UseCreateFormStore = (
+    formStoreKey: string,
+    creatorFn: (createFormStore) => Promise<FormStore>,
+    options?: { resetStoreOnMount?: boolean }
+  ) => {
+    isLoading: boolean,
+    loadingError: Error | null,
+    formStore: FormStore | null
+  }
+```
+
+This hook can be useful if the form configuration depends on some async data.
+
+In addition to the `formStore` instance, it also returns `isLoading`, `loadingError` which can be supplied to the [\<Form\>](/docs/form-store#form) component to handle the loading and error states in a consistent manner by rendering the [InitialDataLoadingIndicator](/docs/form-store#initialdataloadingindicator) and [InitialDataLoadingError](/docs/form-store#initialdataloadingerror) internal components when needed.
+
+```tsx
+import { Form, useCreateFormStoreAsync } from 'react-flexyform'
+
+const DynamicForm = () => {
+  const { isLoading, loadingError, formStore } = useCreateFormStoreAsync(
+    'myFormStore',
+    async (createFormStore) => {
+      const response = await fetch('https://api.example.com/form-config')
+
+      if (!response.ok) {
+        throw new Error(
+          `Error fetching form config: ${(await response.json()).message}`
+        )
+      }
+
+      return createFormStore(await response.json())
+    }
+  )
+
+  return (
+    <Form
+      formStore={formStore}
+      isLoading={isLoading}
+      loadingError={loadingError}
+    />
+  )
+}
+```
+
+---
+
+#### useFormStore [!toc]
+
+<Text>Hook type:</Text> `(formStoreKey: string) => FormStore | undefined`
+
+This hook is used to access the `formStore` instance anywhere in our app that was created with the [useCreateFormStore](/docs/form-store#usecreateformstore) hook with the given `formStoreKey`.
+
+```tsx
+import { useFormStore } from 'react-flexyform'
+
+const NavBar = () => {
+  const anyFormStore = useFormStore('anyFormStoreKey')
+
+  const onLogout = async () => {
+    await anyFormStore.triggerAutoSave()
+    await logout()
+  }
+
+  // ...
+}
+```
+
+---
+
+#### useFormComponentName [!toc]
+
+<Text>Hook type:</Text> `() => string`
+
+This hook returns the `name` (from the configuration) of the dynamic form component it's used in.
+
+Many methods require us to pass the `name` of the form component in order to work.
+
+---
+
+#### useNestedArrayItemInfo [!toc]
+
+<Text>Hook type:</Text> `() => { isNestedArrayItem: boolean; parentFieldName: string; nestedItemIndex: number; nestedItemComponentName: string; }`
+
+In case we want to implement nested array component specific logic, we can use this hook to get the necessary information.
+
+If the component is not used as a nested array component, then the `isNestedArrayItem` will be `false`.
+
+For example if a field is used in a nested array, its name will contain the parent field's name, the index and the actual field's.
+
+```tsx
+{
+  components: [
+    {
+      type: 'field',
+      name: 'friends',
+      formComponentMappingKey: 'nestedArray',
+      nestedArrayComponents: [
+        {
+          type: 'field',
+          name: 'firstName',
+          formComponentMappingKey: 'text',
+        },
+        {
+          type: 'field',
+          name: 'lastName',
+          formComponentMappingKey: 'text',
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'removeNestedArrayItemButton',
+        },
+        // ...
+      ],
+    },
+    // ...
+  ]
+}
+```
+
+In this case we will have friends[0].firstName, friends[0].lastName as the field name of the nested array component.
+
+Additionally we will a component with the name friends[0].autoGeneratedNameForRemoveNestedArrayItemButton (as the name is not defined)
+
+This hook will yield:
+`{ isNestedArrayItem: true, parentFieldName: 'friends', nestedItemIndex: theCurrentIndex, nestedItemComponentName: 'firstName' }`
+
+`{ isNestedArrayItem: true, parentFieldName: 'friends', nestedItemIndex: theCurrentIndex, nestedItemComponentName: 'lastName' }`
+
+`{ isNestedArrayItem: true, parentFieldName: 'friends', nestedItemIndex: theCurrentIndex, nestedItemComponentName: 'autoGeneratedNameForRemoveNestedArrayItemButton' }`
+
+---
+
+#### useParentFormStore [!toc]
+
+<Text>Hook name:</Text>`useParentFormStore`
+
+<Text>Hook type:</Text> `<FormStoreSlice>((formStore: FormStore) => FormStoreSlice) => FormStoreSlice`
+
+This is the primary hook for accessing the form store state in the form components.
+
+This hook together with the [useFormComponentName](/docs/form-store#useformcomponentname) hook an be used to implement any functionality.
+
+Sometimes the [useNestedArrayItemInfo](/docs/form-store#usenestedarrayiteminfo) hook is also needed when working with nested array components.
+
+<Callout type="warning">
+  For performance reasons, you should always select only state slice you need.
+  If you want to return an object from the selector function, you should use the
+  `isDeepEqual` function to ensure no unnecessary re-renders occur.
+</Callout>
+
+```tsx
+import { useNestedArrayItemInfo, isDeepEqual } from 'react-flexyform'
+
+const TextField = () => {
+  const fieldName = useFormComponentName()
+
+  // Access any state from the `formStore` using a selector function
+  const isValidating = useParentFormStore((formStore) => formStore.isValidating)
+
+  // Use the `fieldName` to access the field state and component params
+  const field = useParentFormStore(
+    (formStore) => formStore.getField(fieldName),
+    isDeepEqual
+  )
+  const componentParams = useParentFormStore((formStore) =>
+    formStore.getComponentParams(fieldName)
+  )
+
+  // ...Rest of the component code
+}
+```
+
+```tsx
+const RemoveNestedArrayItemButton = () => {
+  const { parentFieldName, nestedItemIndex } = useNestedArrayItemInfo()
+
+  const removeItemFromNestedArrayField = useParentFormStore(
+    (formStore) => formStore.removeItemFromNestedArrayField
+  )
+
+  // Remove the nested item on click
+  const onClick = () => {
+    removeItemFromNestedArrayField(parentFieldName, nestedItemIndex)
+  }
+
+  // ...Rest of the component code
+}
+```
+
+---
+
+#### useField [!toc]
+
+<Text>Hook type:</Text>
+```tsx
+type UseFieldReturn = {
+  state: Field
+  configuration: FormFieldComponentConfiguration
+  methods: {
+    handleChange (value: any, options?: { shouldDisableHtmlEventHandling?: boolean; }): => void
+    handleBlur (): => void
+    addItemToArray (defaultValue?: Record<string, any>): => void
+    removeItemFromArray (indexToRemvoe: number): => void
+    resetField (): => void
+    triggerValidation (): => Promise<boolean>
+  }
+}
+```
+
+This hook should be used inside of field component as it returns a convenient interface to work with.
+
+All the methods are already bound to the field name, so we don't need to pass the field name as an argument.
+
+```tsx
+import { useField } from 'react-flexyform'
+
+const TextField = () => {
+  const field = useField()
+
+  const formControls = {
+    name: field.state.name,
+    value: field.state.value,
+    onChange: field.methods.onChange,
+    onBlur: field.methods.onBlur,
+  }
+
+  return (
+    <div>
+      <input {...formControls} />
+      {field.state.validationError && (
+        <div>{field.state.validationError[0]}</div>
+      )}
+    </div>
+  )
+}
+```
+
+---
+
+#### useFormComponentParams [!toc]
+
+<Text>Hook type:</Text> `(formComponentName?: string) => string`
+
+This hook returns the `componentParams` (from the configuration) of the form component it's used in.
+
+```tsx
+import { useField } from 'react-flexyform'
+
+const TextField = () => {
+  const field = useField()
+  const componentParams = useFormComponentParams().value
+
+  const formControls = {
+    name: field.state.name,
+    value: field.state.value,
+    onChange: field.methods.onChange,
+    onBlur: field.methods.onBlur,
+    className: componentParams.className,
+  }
+
+  return (
+    <div className={componentParams.wrapperClassName}>
+      {componentParams.label && <label>{componentParams.label}</label>}
+      <input {...formControls} />
+      {field.state.validationError && (
+        <div>{field.state.validationError[0]}</div>
+      )}
+    </div>
+  )
+}
+```
+
+---
+
+#### useSetFormComponentParams [!toc]
+
+<Text>Hook type:</Text> `() => (componentParams: Record<string, any>) => void`
+
+This hook returns a function which can be used to modify the `componentParams` of the form component it's used in.
+
+## React components
+
+#### FormComponentMappingsProvider [!toc]
+
+<Text>Component type:</Text>
+```tsx
+type FormComponentMappingsProviderProps = {
+  children: ReactNode
+  fieldComponentMappings: {
+    [key in keyof FormFieldComponentMappings]: (props?: any) => JSX.Element
+  }
+  uiComponentMappings: {
+    [key in keyof FormUiComponentMappings]: (props?: any) => JSX.Element
+  }
+  wrapperComponentMappings: {
+    [key in keyof FormWrapperComponentMappings]: (props?: any) => JSX.Element
+  }
+  internalComponentMappings?: {
+    formWrapper?: (props: { [key: string]: any; children: ReactNode }) => JSX.Element
+    componentWrapper?: (props: { [key: string]: any; children: ReactNode }) => JSX.Element
+    initialDataLoadingIndicator?: (props?: any) => JSX.Element
+    initialDataLoadingError?: (props?: any) => JSX.Element
+  }
+}
+type FormComponentMappingsProvider = (props: FormComponentMappingsProviderProps) => JSX.Element
+```
+
+In order for `react-flexyform` to work, we need to wrap our application with this component.
+
+We need to bind the components here that we want to use in the form configuration.
+
+The `FormComponentMappingsProvider` component accepts 4 different categories of form component mappings that we need to supply:
+
+- **Field components**: These are the typical form components that capture user input and go through validation.
+- **UI components**: These components can fulfill many essential roles in the form such as buttons to trigger events like submission, a tracking indicator of the form's steps, confirmation modals, white spaces, etc.
+- **Wrapper components**: These components can used to wrap other components to create the responsive layouts for our forms. If we use a grid system for our [FormWrapper](/docs/#formwrapper), we can define the layout of our form fields efficiently.
+- **Internal components**: These components are not defined in any single form's configuration, but they are part of every form by default. There are 3 internal components that we can define:
+  - **\<FormWrapper\>**: This component is the default wrapper for every form. It is recommended to set this up globally to use the same layout strategy for all of our forms. Ideally we want to use a grid system (for example [Mantine Grid](https://mantine.dev/core/grid/)) to define the layout of our form fields. We must render `props.children` inside this component.
+  - **\<ComponentWrapper\>**: This component will wrap every field component in the form. It is recommended to define them in a way that these accept layout related parameters through [componentParams](/docs/form-store#componentparams) (like margins, grid positioning, etc.). We must render `props.children` inside this component.
+  - **\<InitialDataLoadingIndicator\>**: This component will be rendered only if an async data loading operation defined in the form's [initialData](/docs/form-store#initialdata) configuration to load the initial values of the fields is still loading.
+  - **\<InitialDataLoadingError\>**: This component will be rendered only if the async data loading operation defined in the form's [initialData](/docs/form-store#initialdata) configuration to load the initial values of the fields threw an error.
+
+#### Form [!toc]
+
+<Text>Component type:</Text>
+```tsx
+type FormProps = {
+  formStore: FormStore
+  isInitialDataLoading?: boolean
+  initialDataLoadingError?: Error | null
+}
+type Form = (props: FormProps) => JSX.Element
+```
+
+This is the main component that renders the form components. If `isInitialDataLoading` is defined, it will sync the `formStore` instance's [isLoadingInitialData](/docs/form-store#isloadinginitialdata) property with it. Same goes for the `initialDataLoadingError` and the `formStore` instance's [initialDataLoadingError](/docs/form-store#initialdataloadingerror) property.
+
+---
+
+#### NestedArrayComponents [!toc]
+
+<Text>Component type:</Text>
+
+```tsx
+type NestedArrayComponents = ({ render: ({
+    nestedArrayComponents: ReactNode
+    index: number
+    isLastIndex: boolean
+  }) => JSX.Element}) => JSX.Element
+```
+
+This component is used to build generic dynamic components that accept [nestedArrayComponents](/docs/form-store#nestedarraycomponents) in the configuration.
+
+You need to define a `render` function that will render the nested array components defined configuration the same way the [\<Form\>](/docs/form-store#form) component renders the components, but this way you can dynamically style the wrapper of the nested array components.
+
+```tsx
+import { useFormComponentParams, useField } from 'react-flexyform'
+
+const NestedArrayField = () => {
+  const field = useField()
+  const componentParams = useFormComponentParams().value
+
+  const onAddClick = () => {
+    field.methods.addItemToArray()
+  }
+
+  return (
+    <div>
+      {componentParams.label && <label>{componentParams.label}</label>}
+      <NestedArrayComponents
+        render={({ nestedArrayComponents, index, isLastIndex }) => (
+          <div style={{ marginBottom: !isLastIndex ? 36 : undefined }}>
+            {nestedArrayComponents}
+          </div>
+        )}
+      />
+      <button onClick={onAddClick}>Add</button>
+      {field.state.validationError && (
+        <div>{field.state.validationError[0]}</div>
+      )}
+    </div>
+  )
+}
+```
+
+## Type reference
+
+### CreateStoreConfiguration [!toc]
+
+[CreateStoreSingleStepConfiguration](/docs/form-store#createstoresinglestepconfiguration) | [CreateStoreMultiStepConfiguration](/docs/form-store#createstoremultistepconfiguration)
+
+---
+
+### CreateStoreSingleStepConfiguration [!toc]
+
+```tsx
+type CreateStoreSingleStepConfiguration = {
+  components: FormComponentConfiguration[]
+  initialData?:
+    | Record<string, any>
+    | Promise<Record<string, any>>
+    | (() => Promise<Record<string, any>>)
+  validate?: () => string
+  validateAsync?: (abortController: AbortController) => Promise<string>
+  validationOptions?: Partial<ValidationOptions>
+  shouldSubmitOnEnter?: boolean
+  events?: Partial<FormEvents>
+  context?:
+    | Record<string, any>
+    | { value: () => Record<string, any>; dependencies?: () => any[] }
+}
+```
+
+Other types used in this type: [FormComponentConfiguration](/docs/form-store#formcomponentconfiguration), [ValidationOptions](/docs/form-store#validationoptions), [AutoSaveOptions](/docs/form-store#autosaveoptions), [FormEvents](/docs/form-store#formevents)
+
+---
+
+### CreateStoreMultiStepConfiguration [!toc]
+
+```tsx
+type CreateStoreMultiStepConfiguration = {
+  steps: StepConfiguration[]
+  initialData?:
+    | { [fieldName: string]: any }
+    | Promise<{ [fieldName: string]: any }>
+    | (() => Promise<{ [fieldName: string]: any }>)
+  startAtStep?: () => string
+  validationOptions?: Partial<ValidationOptions>
+  autoSaveOptions?: Partial<AutoSaveOptions>
+  events?: Partial<FormEvents>
+  context?:
+    | Record<string, any>
+    | { value: () => Record<string, any>; dependencies?: () => any[] }
+}
+```
+
+Other types used in this type: [StepConfiguration](/docs/form-store#stepconfiguration), [FormEvents](/docs/form-store#formevents)
+
+---
+
+### StepConfiguration [!toc]
+
+```tsx
+type StepConfiguration = {
+  name: string
+  components: FormComponentConfiguration[]
+  validate?: () => string
+  validateAsync?: (abortController: AbortController) => Promise<string>
+  shouldSkipWhenGoingToNextStep?: () => boolean
+  shouldSkipWhenGoingToPreviousStep?: () => boolean
+  shouldSkip?: () => boolean
+  nextStepDestination?: () => string
+  previousStepDestination?: () => string
+  onMount?: () => any
+  onUnmount?: () => any
+  validationOptions?: Partial<ValidationOptions>
+  autoSaveOptions?: Partial<AutoSaveOptions>
+  shouldSubmitOnEnter?: boolean
+  shouldGoToNextStepOnEnter?: boolean
+}
+```
+
+Other types used in this type: [FormComponentConfiguration](/docs/form-store#formcomponentconfiguration), [ValidationOptions](/docs/form-store#validationoptions), [AutoSaveOptions](/docs/form-store#autosaveoptions)
+
+---
+
+### FormComponentConfiguration [!toc]
+
+[FormFieldComponentConfiguration](/docs/form-store#formfieldcomponentconfiguration)
+| [FormUiComponentConfiguration](/docs/form-store#formuicomponentconfiguration) |
+[FormWrapperComponentConfiguration](/docs/form-store#formwrappercomponentconfiguration)
+
+---
+
+### FormFieldComponentConfiguration [!toc]
+
+```tsx
+type FormFieldComponentConfiguration = {
+  type: 'field'
+  name: string
+  formComponentMappingKey: string
+  componentParams?:
+    | Record<string, any>
+    | {
+        value: (
+          nestedArrayItemIndex: number | null,
+          abortController: AbortController
+        ) => Promise<Record<string, any>> | Record<string, any>
+        staticPart?: Record<string, any>
+        dependencies?: () => any[]
+      }
+  reactToChanges?: {
+    functionToRun: (nestedArrayItemIndex: number | null) => any
+    dependencies?: () => any[]
+  }
+  defaultValue?: any
+  nestedArrayComponents?: FormComponentConfiguration[]
+  shouldShowOnlyIf?:
+    | Partial<{ [fieldName: string]: any }>
+    | {
+        value: (nestedArrayItemIndex: number | null) => boolean
+        dependencies?: () => any[]
+      }
+  shouldShowOnlyIfMediaQueryMatches?: string
+  shouldShowOnlyOnScreenSize?: { min: number | null; max: number | null }
+  validationRules?: FieldValidationRules
+  shouldKeepValueEvenIfHidden?: boolean
+  shouldIncludeInValuesEvenIfNotShowing?: boolean
+}
+```
+
+Other types used in this type: [FieldValidationRules](/docs/form-store#fieldvalidationrules)
+
+---
+
+### FormUiComponentConfiguration [!toc]
+
+```tsx
+type FormUiComponentConfiguration = {
+  type: 'ui'
+  formComponentMappingKey: string
+  name?: string
+  componentParams?:
+    | Record<string, any>
+    | {
+        value: (
+          nestedArrayItemIndex: number | null,
+          abortController: AbortController
+        ) => Promise<Record<string, any>> | Record<string, any>
+        staticPart?: Record<string, any>
+        dependencies?: () => any[]
+      }
+  reactToChanges?: {
+    functionToRun: (nestedArrayItemIndex: number | null) => any
+    dependencies?: () => any[]
+  }
+  shouldShowOnlyIf?:
+    | Partial<{ [fieldName: string]: any }>
+    | {
+        value: (nestedArrayItemIndex: number | null) => boolean
+        dependencies: () => any[]
+      }
+  shouldShowOnlyIfMediaQueryMatches?: string
+  shouldShowOnlyOnScreenSize?: { min: number | null; max: number | null }
+}
+```
+
+---
+
+### FormWrapperComponentConfiguration [!toc]
+
+```tsx
+type FormWrapperComponentConfiguration = {
+  type: 'wrapper'
+  wrapping: 'start' | 'end'
+  formComponentMappingKey: string
+  name?: string
+  componentParams?:
+    | Record<string, any>
+    | {
+        value: (
+          nestedArrayItemIndex: number | null,
+          abortController: AbortController
+        ) => Promise<Record<string, any>> | Record<string, any>
+        staticPart?: Record<string, any>
+        dependencies?: () => any[]
+      }
+  reactToChanges?: {
+    functionToRun: (nestedArrayItemIndex: number | null) => any
+    dependencies?: () => any[]
+  }
+  shouldShowOnlyIf?:
+    | Partial<{ [fieldName: string]: any }>
+    | {
+        value: (nestedArrayItemIndex: number | null) => boolean
+        dependencies: () => any[]
+      }
+  shouldShowOnlyIfMediaQueryMatches?: string
+  shouldShowOnlyOnScreenSize?: { min: number | null; max: number | null }
+}
+```
+
+---
+
+### FieldValidationRules [!toc]
+
+```tsx
+{
+    required?: {
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    maxLength?: {
+      value: number
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    minLength?: {
+      value: number
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    exactLength?: {
+      value: number
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    minValue?: {
+      value: number
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    maxValue?: {
+      value: number
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    minDate?: {
+      value: string
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    maxDate?: {
+      value: string
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    email?: {
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    url?: {
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    onlyStrongPasswordCharacters?: {
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    phoneNumber?: {
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+      options?: {
+        country?: string
+        validateMobilePrefix?: boolean
+        strictDetection?: boolean
+      }
+    }
+    pattern?: {
+      value: string | RegExp
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    matchAnotherField?: {
+      value: string
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    mustBeEqualTo?: {
+      value: any
+      message: string | ((nestedArrayItemIndex: number | null) => string)
+      priority?: number
+    }
+    customValidation?: {
+      validate: (nestedArrayItemIndex: number | null) => string
+      priority?: number
+    }
+    customAsyncValidation?: (nestedArrayItemIndex: number | null, abortController: AbortController) => Promise<string>
+    dependencies?: () => any[]
+    debounceDurationInMs?: number
+    asyncDebounceDurationInMs?: number
+  }
+```
+
+---
+
+### FormEvents [!toc]
+
+```tsx
+type FormEvents = {
+  onGoToStep?: () => Promise<any> | any
+  onGoToStepError?: () => any
+  onGoToStepSuccess?: () => any
+  onGoToNextStep?: () => Promise<any> | any
+  onGoToNextStepError?: () => any
+  onGoToNextStepSuccess?: () => any
+  onGoToPreviousStep?: () => Promise<any> | any
+  onGoToPreviousStepError?: () => any
+  onGoToPreviousStepSuccess?: () => any
+  onSubmit?: () => Promise<any> | any
+  onSubmitError?: () => any
+  onSubmitSuccess?: () => any
+  onSave?: (abortController: AbortController) => Promise<any> | any
+  onSaveError?: () => any
+  onSaveSuccess?: () => any
+  onStepChange?: () => Promise<any> | any
+  onStepChangeError?: () => any
+  onStepChangeSuccess?: () => any
+  onAutoSave?: (abortController: AbortController) => Promise<any> | any
+  onAutoSaveError?: () => any
+  onAutoSaveSuccess?: () => any
+}
+```
+
+---
+
+### ValidationOptions [!toc]
+
+```tsx
+type ValidationTrigger =
+  | {
+      trigger: 'fieldBlur' | 'fieldValueChange'
+      excludeFieldNamesOnly?: string[]
+      includeFieldNamesOnly?: string[]
+    }
+  | 'fieldBlur'
+  | 'fieldValueChange'
+  | 'goToNextStep'
+  | 'goToPreviousStep'
+  | 'goToStep'
+  | 'save'
+type ValidationOptions = {
+  shouldFocusFirstInvalidField: boolean
+  validateFieldsOn: ValidationTrigger[]
+  reValidateFieldsOn: ValidationTrigger[]
+  fieldValidationDebounceDurationInMs: number
+  fieldAsyncValidationDebounceDurationInMs: number
+  validateStepOn: ValidationTrigger[]
+  reValidateStepOn: ValidationTrigger[]
+  stepValidationDebounceDurationInMs: number
+  stepAsyncValidationDebounceDurationInMs: number
+}
+```
+
+---
+
+### AutoSaveOptions [!toc]
+
+```tsx
+{
+  autoSaveOn: (
+    | {
+        trigger: 'fieldBlur' | 'fieldValueChange'
+        excludeFieldNamesOnly?: string[] | undefined
+        includeFieldNamesOnly?: string[] | undefined
+      }
+    | 'fieldBlur'
+    | 'fieldValueChange'
+    | 'interval'
+  )[]
+  autoSaveIntervalInMs: number | null
+  onAutoSave?: () => Promise<any> | any
+  onAutoSaveSuccess?: () => Promise<any> | any
+  onAutoSaveError?: () => Promise<any> | any
+  autoSaveDebounceDurationInMs: number
+}
+```
+
+---
+
+### FormStore [!toc]
+
+```tsx
+type FormStore = {
+  // Even if it's a single step form, the configuration will be transformed to have a single step
+  configuration: CreateStoreMultiStepConfiguration & { formId: string }
+
+  context: Record<string, any>
+  setContext: (context: Record<string, any>) => void
+
+  // Initial data states
+  initialData: { [fieldName: string]: any } | null
+  isLoadingInitialData: boolean
+  initialDataLoadingError: Error | null
+  setIsLoadingInitialData: (isLoading: boolean) => void
+  setInitialDataLoadingError: (error: Error | null) => void
+  triggerInitialDataLoading: () => Promise<void>
+  getInitialDataLoadingStatus: () => LoadingStatus
+
+  // Form/Step states
+  currentStepName: string
+  setCurrentStep: (stepName: string) => {
+    currentStepName: string
+    lastDirection: 'idle' | 'previous' | 'next'
+    stepHistory: string[]
+  }
+  stepHistory: string[]
+  lastDirection: 'idle' | 'previous' | 'next'
+  triggerStepValidation: () => Promise<boolean>
+  isValidatingStep: boolean
+  stepValidationError: string
+  didPassAsyncStepValidation: boolean
+  eventHistory: {
+    stepName: string
+    type: 'goToNextStep' | 'goToPreviousStep' | 'goToStep' | 'save' | 'submit'
+  }[]
+  didTriggerRevalidationModeForStep: boolean
+  setStepInitialValues: (stepName: string) => void
+  resetFormState: () => void
+  getStepByName: (stepName: string) => Step | undefined
+  getStepByIndex: (stepIndex: number) => Step | undefined
+  getNextStepName: (stepName?: string) => string
+  getPreviousStepName: (stepName?: string) => string
+  getStepIndexByName: (stepName: string) => number
+  getStepNameByIndex: (stepIndex: number) => string
+  getCurrentStep: () => Step
+  getCurrentStepIndex: () => number
+  getFirstStep: () => Step
+  getLastStep: () => Step
+  getIsFirstStep: () => boolean
+  getIsLastStep: () => boolean
+  getFirstStepNameWithRequiredFieldsNotCompleted: () => string | undefined
+  getIsStepDirty: () => boolean
+  getIsStepTouched: () => boolean
+  getIsValidatingAnything: () => boolean
+  getIsAnyFieldInvalid: () => boolean
+  getIsAnyFieldFocused: () => boolean
+  getEventTriggerCounts: () => Record<
+    'goToNextStep' | 'goToPreviousStep' | 'goToStep' | 'save' | 'submit',
+    number
+  >
+
+  // Form field states
+  fields: { [fieldName: string]: Field }
+  setFieldValue: (
+    fieldName: string,
+    value: any,
+    options?: {
+      shouldSetIsDirty?: boolean
+      shouldSetIsTouched?: boolean
+      shouldTriggerValidation?: boolean
+    }
+  ) => void
+  triggerFieldBlur: (fieldName: string) => void
+  triggerFieldChange: (
+    fieldName: string,
+    value: any,
+    options?: { shouldDisableHtmlEventHandling?: boolean }
+  ) => void
+  addItemToNestedArrayField: (
+    fieldName: string,
+    defaultValues?: { [fieldName: string]: any }
+  ) => void
+  removeItemFromNestedArrayField: (
+    fieldName: string,
+    indexToRemove: number
+  ) => void
+  triggerFieldFocus: (fieldName: string) => boolean
+  resetField: (
+    fieldName: string,
+    options?: {
+      shouldKeepValue?: boolean
+      shouldKeepIsDirty?: boolean
+      shouldKeepIsTouched?: boolean
+      shouldKeepValidationError?: boolean
+    }
+  ) => void
+  resetFieldsForStep: (
+    stepName?: string,
+    options?: {
+      shouldKeepValue?: boolean
+      shouldKeepIsDirty?: boolean
+      shouldKeepIsTouched?: boolean
+      shouldKeepValidationError?: boolean
+    }
+  ) => void
+  triggerFieldValidation: (
+    fieldName: string,
+    options?: { shouldFocusInvalidField?: boolean }
+  ) => Promise<boolean>
+  triggerMultipleFieldsValidations: (
+    fieldNames: string[],
+    options?: { shouldFocusInvalidField?: boolean }
+  ) => Promise<boolean>
+  triggerFieldValidationsForStep: (options?: {
+    shouldFocusInvalidField?: boolean
+  }) => Promise<boolean>
+  resetValidationErrorForFields: (fieldNames: string[]) => void
+  resetFieldValidationErrorsForStep: () => void
+  getFieldValue: (fieldName: string) => any
+  getStepFieldValues: (stepName?: string) => Record<string, any>
+  getAllFieldValues: () => Record<string, any>
+  getField: (fieldName: string) => Field | undefined
+  getNestedArrayItemField: (params: {
+    parentFieldName: string
+    fieldName: string
+    nestedItemIndex: number
+  }) => Field | undefined
+  getIsFormComponentShowing: (formComponentName: string) => boolean
+  getStepFields: (stepName?: string) => { [fieldName: string]: Field }
+  getAllFields: () => { [fieldName: string]: Field }
+  getFieldNamesByStepIndex: (stepIndex: number) => string[]
+  getFieldNamesByStepName: (stepName: string) => string[]
+  getNestedArrayItemsFields: (parentNestedArrayFieldName: string) => {
+    [nestedArrayItemFieldName: string]: Field
+  }[]
+  getDirtyFields: () => FormFieldConfiguration[]
+  getTouchedFields: () => FormFieldConfiguration[]
+  getRequiredFields: () => FormFieldConfiguration[]
+  getStepRequiredFields: (stepName?: string) => FormFieldConfiguration[]
+  getIsValidatingFields: () => boolean
+  getFieldValidationErrors: () => { [fieldName: string]: string[] | null }
+
+  // Form component states
+  componentParams: {
+    [componentName: string]: {
+      value: Record<string, any>
+      isLoading: boolean
+      loadingError: Error | null
+    }
+  }
+  getComponentParams: (
+    componentName: string
+  ) => { [componentName: string]: any } | undefined
+  getAreComponentParamsLoading: (componentName: string) => boolean
+  getComponentParamsLoadingError: (componentName: string) => Error | null
+  setComponentParams: (componentName: string, componentParams: any) => void
+  getComponentConfiguration: (
+    componentName: string
+  ) => FormComponentConfiguration | null
+  triggerDynamicComponentParams: (componentName: string) => Promise<void>
+  triggerAllDynamicComponentParamsForStep: () => Promise<void>
+  getAreAnyComponentParamsLoading: () => boolean
+  getAreAnyComponentParamsLoadingErrors: () => boolean
+  getComponentsWithComponentParamsLoadingError: () => FormComponent[]
+
+  // Form control handler states
+  // Next/Prev
+  triggerGoToStep: (params: {
+    stepName: string
+    onGoToStep?: () => Promise<any> | any
+    onGoToStepError?: () => Promise<any> | any
+    onGoToStepSuccess?: () => Promise<any> | any
+    shouldKeepFieldValues?: boolean
+  }) => Promise<void>
+  triggerGoToNextStep: (params?: {
+    onGoToNextStep?: () => Promise<any> | any
+    onGoToNextStepError?: () => Promise<any> | any
+    onGoToNextStepSuccess?: () => Promise<any> | any
+  }) => Promise<void>
+  triggerGoToPreviousStep: (params?: {
+    onGoToPreviousStep?: () => Promise<any> | any
+    onGoToPreviousStepError?: () => Promise<any> | any
+    onGoToPreviousStepSuccess?: () => Promise<any> | any
+    shouldKeepFieldValues?: boolean
+  }) => Promise<void>
+  isChangingStep: boolean
+  isGoingToNextStep: boolean
+  isGoingToPreviousStep: boolean
+  stepChangeError: Error | null
+
+  // Save
+  triggerSave: (params: {
+    onSave: (abortController: AbortController) => Promise<any> | any
+    onSaveError?: () => Promise<any> | any
+    onSaveSuccess?: () => Promise<any> | any
+  }) => Promise<void>
+  isSaving: boolean
+  saveError: Error | null
+
+  // Auto save
+  triggerAutoSave: (params?: {
+    onAutoSave?: (abortController: AbortController) => Promise<any> | any
+    onAutoSaveError?: () => any
+    onAutoSaveSuccess?: () => any
+  }) => Promise<void>
+  isAutoSaving: boolean
+  autoSaveError: Error | null
+
+  // Submit
+  triggerSubmit: (actions: {
+    onSubmit: () => Promise<any> | any
+    onSubmitError?: () => Promise<any> | any
+    onSubmitSuccess?: () => Promise<any> | any
+    shouldSkipValidation?: boolean
+  }) => Promise<void>
+  isSubmitting: boolean
+  submitError: Error | null
+}
+```
+
+Other types used in this type: [Field](/docs/form-store#field)
+
+---
+
+### Field [!toc]
+
+```tsx
+type Field = {
+  id: string
+  name: string
+  stepName: string
+  value: any
+  initialValue: any
+  stepInitialValue: any
+  previousValue: any
+  isTouched: boolean
+  isDirty: boolean
+  isValidating: boolean
+  validationError: string[] | null
+  didTriggerRevalidationMode: boolean
+  lastValidatedValue: any
+}
+```

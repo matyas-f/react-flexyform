@@ -1,0 +1,197 @@
+---
+title: Typescript
+---
+
+When working with `react-flexyform` there are many ways in which we can guarantee type safety both in the [form configuration](/docs/form-store#configuration) or when interracting with the [form store](/docs/form-store#form-store-instance-properties).
+
+## Form component mapping keys and params
+
+A useful prerequisite is to declare global mappings between the `formComponentMappingKeys` and the `componentParams` they accept.
+
+We do this by defining the `FormFieldComponentMappings`, `FormUiComponentMappings` and `FormWrapperComponentMappings` in the `global` scope. We can define the `ComponentWrapperParams` interface to add common `componentParams` properties to all 'field' and 'ui' components.
+
+For example:
+
+```tsx
+type TextFieldComponentParams = {
+  label: string
+  className?: string
+}
+// ...Define the other component params the same way
+
+declare global {
+  interface FormFieldComponentMappings {
+    text: TextFieldComponentParams
+    select: SelectFieldComponentParams
+    radio: RadioGroupFieldComponentParams
+  }
+
+  interface FormUiComponentMappings {
+    submitButton: SubmitButtonParams
+  }
+
+  interface FormWrapperComponentMappings {
+    borderedSection: BorderedSectionParams
+  }
+
+  // This will be part of every 'field' and 'ui' component's componentParams
+  interface ComponentWrapperParams {
+    wrapperParams?: {
+      colSpan?: number
+    }
+  }
+}
+```
+
+In this way, using the `typeSafeFieldComponent`, `typeSafeUiComponent` and `typeSafeWrapperComponent` will ensure type safety when configuring our forms.
+
+```jsx
+import { typeSafeFieldComponent, typeSafeUiComponent } from 'react-flexyform'
+
+const signUpFormStore = useCreateFormStore('signUpForm', {
+  components: [
+    {
+      name: 'fullName',
+      ...typeSafeFieldComponent({
+        // Here we will get all the possible form field components we defined in the global mappings, in this case Typescript will suggest 'text' | 'select' | 'radio'
+        formComponentMappingKey: 'text',
+        componentParams: {
+          // Here we will get the params defined for the actual formComponentMappingKey, in this case { label: string; className?: string; }
+          label: 'Full name',
+          // ❌ Type error: this property does not exist for the params of the form component mapped to the 'text' key
+          nonExistingProperty: false,
+        },
+      }),
+    },
+    // ...Rest of the components
+    {
+      ...typeSafeUiComponent({
+        // Here we will get all the possible form ui components, in this case Typescript will suggest 'submit-button'
+        formComponentMappingKey: 'submitButton',
+        componentParams: {
+          // ✅ We can define this because it's part of the `ComponentWrapperParams` interface
+          wrapperParams: {
+            colSpan: 6,
+          },
+        },
+      }),
+    },
+  ],
+})
+```
+
+## Form configuration
+
+It is recommended to to declare the context type in the `global` scope.
+
+```tsx
+declare global {
+  interface FormStoreContext {
+    renderFormInModal?: boolean
+    withToastNotificationOnErrors?: boolean
+  }
+}
+```
+
+When creating the `formStore`, it's recommended to use the generic slot and provide a type with the form fields and the value types, this way it will also ensure the correct field names in the `components`.
+
+If the types are not provided the [useCreateFormStore](/docs/form-store#usecreateformstore) hook will infer the possible field names from the [initialData](/docs/form-store#initialdata) (if provided).
+
+```jsx
+type SignUpFormStoreFields = { fullName: string; email: string };
+
+const signUpFormStore = useCreateFormStore<SignUpFormStoreFields>({
+  context: {
+    // ✅ Type safety will be enforced based on FormStoreContext in the global scope
+    withToastNotificationOnErrors: true,
+    // ❌ Type error: this key does is not defined in the SignUpFormContext type, so Typescript emit a type error
+    renderFormInModal: true,
+  },
+  initialData: {
+    fullName: '',
+    // ❌ Type error: this key does is not defined in the SignUpFormStoreFields type, so Typescript emit a type error
+    gender: '',
+  },
+  components: [
+    {
+      // ✅ Type safety will be enforced based on the keys we defined in the SignUpFormStoreFields type, in this case Typescript will suggest 'fullName' | 'email'
+      name: 'fullName',
+      ...typeSafeFieldComponent({
+        formComponentMappingKey: 'text',
+        componentParams: {
+          label: 'First name',
+        },
+      }),
+    },
+    {
+      // ❌ Type error: this key does is not defined in the SignUpFormStoreFields type, so Typescript emit a type error
+      name: 'gender',
+      ...typeSafeFieldComponent({
+        formComponentMappingKey: 'select',
+        componentParams: {
+          label: 'Gender',
+          options: [{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'other', label: 'Other' }]
+        },
+      }),
+    },
+    // ...Rest of the components
+    {
+      ...typeSafeUiComponent({
+        formComponentMappingKey: 'submitButton',
+        componentParams: {},
+      }),
+    },
+  ],
+})
+```
+
+## Form store
+
+When using the form store instance via the `useFormStore` hook it is recommended to provide the type of the form fields in the generic slot.
+
+```jsx
+import { useFormStore } from 'react-flexyform'
+
+type SignUpFormStoreFields = { fullName: string; email: string };
+
+const NavBar = () => {
+  const signUpFormStore = useFormStore<SignUpFormStoreFields>('signUpForm')
+
+  // The variable firstName will be inferred as string and Typescript will enforce the getFieldValue method's argument to be an existing field name,
+  // in this case Typescript will suggest 'firstName' | 'lastName'
+  const firstName = signUpFormStore.getFieldValue('firstName')
+
+  // ❌ Type error: 'gender' is not defined as a field name in signUpFormStore, so Typescript will emit a type error
+  const gender = signUpFormStore.getFieldValue('gender')
+
+  // ...Rest of the component code
+}
+```
+
+We usually do not want to explicitly define the form fields type when using [useParentFormStore](/docs/form-store#useparentformstore), as in generic components we should not rely on specific fields to exist in every form.
+
+But we will still get the type safety for the context properties defined in the global scope.
+
+```tsx
+// Somewhere in the code
+declare global {
+  interface FormStoreContext {
+    renderFormInModal?: boolean;
+  }
+}
+
+// Then in the component
+import { useParentFormStore, FormStore } from 'react-flexyform'
+
+const FormWrapper = ({ children }) => {
+  // We can explicitly define the context type for the form store, but if it's declared in the global scope it's not needed
+  const context = useParentFormStore(formStore) => formStore.context)
+
+  // ✅ type safety will be enforced based on the FormStoreContext type
+  if (context.renderFormInModal) {
+    return <Modal>{children}</Modal>
+  }
+
+  return <div>{children}</div>
+}
+```

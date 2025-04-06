@@ -1,0 +1,64 @@
+{
+  "name": "@react-flexyform/form-components",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsup --config ./tsup.esm.ts && tsup --config ./tsup.dts.ts",
+    "eslint": "eslint --report-unused-disable-directives --max-warnings 0",
+    "eslint:fix": "eslint . --ext ts,tsx --fix",
+    "lint-staged": "lint-staged",
+    "prettier": "prettier . --check",
+    "prettier:fix": "prettier . --write",
+    "typecheck": "tsc --noEmit"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "pnpm eslint",
+      "pnpm prettier"
+    ],
+    "!(*.js|*.jsx|*.ts|*.tsx}": [
+      "pnpm prettier"
+    ]
+  },
+  "dependencies": {
+    "@headlessui/react": "2.2.0",
+    "@headlessui/tailwindcss": "0.2.2",
+    "@heroicons/react": "2.2.0",
+    "@mantine/core": "7.17.1",
+    "@mantine/dates": "7.17.1",
+    "@mantine/hooks": "7.17.1",
+    "@mantine/modals": "7.17.1",
+    "@radix-ui/react-popover": "1.1.6",
+    "@radix-ui/react-slot": "1.1.2",
+    "@tabler/icons-react": "3.31.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "date-fns": "3.6.0",
+    "dayjs": "1.11.13",
+    "lodash": "4.17.21",
+    "lucide-react": "0.479.0",
+    "next-themes": "0.4.6",
+    "react": "19.0.0",
+    "react-day-picker": "9.0.8",
+    "react-dom": "19.0.0",
+    "react-flexyform": "workspace:*",
+    "tailwind-merge": "3.0.2"
+  },
+  "devDependencies": {
+    "@react-flexyform/config": "workspace:*",
+    "@types/lodash": "4.17.16",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "lint-staged": "15.4.3",
+    "postcss": "8.5.3",
+    "postcss-preset-mantine": "1.17.0",
+    "postcss-simple-vars": "7.0.1"
+  }
+}

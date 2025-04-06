@@ -1,0 +1,628 @@
+---
+title: Overview
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import BookingFormExample from '../../app/components/code-examples/booking-form-example'
+
+Maintaining many complex forms (especially multi step ones) and having them follow the same priciples in a large project is not easy. Ideally, we would like to reuse the same components, styles, spacings, errors and common form-related logic in every form.
+
+This package offers an abstraction for our forms to solve these problems. Additionally, it offers solutions in a standardized way for most of the typical form-related user flows that would be time consuming to implement from scratch.
+
+The main idea is that every form should have the same state structure, the same way of consuming the state and use the same ways of modifying the state for the same features. This way we can create a set of components that can be reused in every form.
+
+These components are not just for capturing user input, but they can also be used for triggering form-related events (for example buttons to change the current step, submitting, etc.) or displaying the form's steps, errors, loading indicators, etc.
+
+To increase the consistency between our forms, we would use a type-safe configuration object to compose them.
+
+This approach is more strict than a headless solution (such as [TanStack Form](https://tanstack.com/form/latest) or [react-hook-form](https://react-hook-form.com/)), but it offers a more consistent way of working with forms in a large project. While it might seem that this approach is too limiting, it offers ways to implement custom logic for edge cases.
+
+## Installation
+
+Install the library via npm, yarn or pnpm.
+
+<Tabs items={['npm', 'yarn', 'pnpm']} defaultIndex={0}>
+```bash tab="npm"
+npm install react-flexyform
+```
+
+```bash tab="yarn"
+yarn add react-flexyform
+```
+
+```bash tab="pnpm"
+pnpm install react-flexyform
+```
+
+</Tabs>
+
+## Define the form components
+
+In order to lay down the foundation for our project's form system, we need to define the components we will use in our forms.
+
+The components that we will use in our forms will need to consume the state exposed by the `react-flexyform` state store (which is a [zustand](https://github.com/pmndrs/zustand) store in the background).
+
+The most fundamental way to consume this state is by using the [useParentFormStore](/docs/form-store#useparentformstore) in combination with the [useFormComponentName](/docs/form-store#useformcomponentname) hook, but there are more convenient ways like [useField](/docs/form-store#usefield) that selects only a slice of the state for a common use case.
+
+### Text field component example
+
+Here is a basic example of a `TextField` component that is using the state from `react-flexyform`:
+
+```tsx
+import { useField, useFormComponentParams } from 'react-flexyform'
+
+type Params = {
+  label?: string
+  placeholder?: string
+  containerClassName?: string
+}
+
+const FormIntegratedTextField = () => {
+  const field = useField()
+  const params = useFormComponentParams<Params>().value
+
+  const formIntegratedInputControls = {
+    id: field.configuration.id,
+    name: field.configuration.name,
+    value: field.state.value,
+    onChange: field.methods.handleChange,
+    onBlur: field.methods.handleBlur,
+    placeholder: params.placeholder,
+  }
+
+  if (!field) {
+    return null
+  }
+
+  return (
+    <div className={params.containerClassName}>
+      {params.label && (
+        <label htmlFor={field.configuration.id} className="field-label">
+          {params.label}
+        </label>
+      )}
+      <input
+        type="text"
+        className="text-input"
+        {...formIntegratedInputControls}
+      />
+      {field.validationError && (
+        <p className="field-error">{field.validationError[0]}</p>
+      )}
+    </div>
+  )
+}
+```
+
+## Define the mappings of the form components
+
+After we created our form components, we need to pass them to the `FormComponentMappingsProvider` component that will wrap our application.
+
+The `FormComponentMappingsProvider` component accepts 4 different categories of form component mappings that we need to supply:
+
+- **Field components**: These are the typical form components that capture user input and go through validation.
+- **UI components**: These components can fulfill many essential roles in the form such as buttons to trigger events like submission, a tracking indicator of the form's steps, confirmation modals, white spaces, etc.
+- **Wrapper components**: These components can used to wrap other components to create the responsive layouts for our forms. If we use a grid system for our `<FormWrapper>`, we can define the layout of our form fields efficiently.
+- **Internal components**: These components are not defined in any single form's configuration, but they are part of every form by default. There are 3 internal components that we can define:
+  - **\<FormWrapper\>**: This component is the default wrapper for every form. It is recommended to set this up globally to use the same layout strategy for all of our forms. Ideally we want to use a grid system (for example [Mantine Grid](https://mantine.dev/core/grid/)) to define the layout of our form fields. We must render `props.children` inside this component.
+  - **\<ComponentWrapper\>**: This component will wrap every field component in the form. It is recommended to define them in a way that these accept layout related parameters through [componentParams](/docs/form-store#componentparams) (like margins, grid positioning, etc.). We must render `props.children` inside this component.
+  - **\<InitialDataLoadingIndicator\>**: This component will be rendered only if an async data loading operation defined in the form's [initialData](/docs/form-store#initialdata) configuration to load the initial values of the fields is still loading.
+  - **\<InitialDataLoadingError\>**: This component will be rendered only if the async data loading operation defined in the form's [initialData](/docs/form-store#initialdata) configuration to load the initial values of the fields threw an error.
+
+### Component mappings example
+
+```jsx
+import { TextField, TextFieldParams } from '@my-project/components/TextField'
+import {
+  SelectField,
+  SelectFieldParams,
+} from '@my-project/components/SelectField'
+import {
+  SubmitButton,
+  SubmitButtonParams,
+} from '@my-project/components/SubmitButton'
+import {
+  BorderedSection,
+  BorderedSectionParams,
+} from '@my-project/components/BorderedSection'
+import {
+  FormWrapper
+} from '@my-project/components/FormWrapper'
+import {
+  ComponentWrapper
+} from '@my-project/components/ComponentWrapper'
+import {
+  FormInitialDataLoadingIndicator
+} from '@my-project/components/FormInitialDataLoadingIndicator'
+import {
+  FormInitialDataLoadingError
+} from '@my-project/components/FormInitialDataLoadingError'
+
+export const fieldComponentMappings = {
+  text: TextField,
+  select: SelectField,
+  // ...Rest of the components
+}
+
+export const uiComponentMappings = {
+  submitButton: SubmitButton,
+  // ...Rest of the components
+}
+
+export const wrapperComponentMappings = {
+  borderedSection: BorderedSection,
+  // ...Rest of the components
+}
+
+export const internalComponentMappings = {
+  formWrapper: FormWrapper,
+  componentWrapper: ComponentWrapper,
+  formInitialDataLoadingIndicator: FormInitialDataLoadingIndicator,
+  formInitialDataLoadingError: FormInitialDataLoadingError,
+}
+
+// Typescript only:
+declare global {
+  interface FormFieldComponentMappings {
+    text: TextFieldComponentParams
+    select: SelectFieldComponentParams
+    // ...Rest of the components
+  }
+
+  interface FormUiComponentMappings {
+    submitButton: SubmitButtonParams
+    // ...Rest of the components
+  }
+
+  interface FormWrapperComponentMappings {
+    sectionWithBorder: SectionWithBorderParams
+    // ...Rest of the components
+  }
+}
+
+<FormComponentMappingsProvider
+  fieldComponentMappings={fieldComponentMappings}
+  uiComponentMappings={uiComponentMappings}
+  wrapperComponentMappings={wrapperComponentMappings}
+  internalComponentMappings={internalComponentMappings}
+>
+  {/* ...Your application code */}
+</FormComponentMappingsProvider>
+```
+
+## Creating our first form
+
+To create a form, we first need to create the `formStore` instance for our form using the [useCreateFormStore](/docs/form-store#usecreateformstore) hook (learn more about the [form store and configuration](/docs/form-store)). This will initiate the state store of the form based on the configuration and it will return a `formStore` instance that we will need to pass to the [\<Form\>](/docs/form-store#form) component.
+
+```tsx
+import { Form, useCreateFormStore } from 'react-flexyform'
+
+export const BookingFormRoute = () => {
+  const bookingFormStore = useCreateFormStore('booking', (getFormStore) => ({
+    events: {
+      onGoToNextStep: async () => {
+        // In case of going to the previous step, not modifying anything and going to the next step, there will be no need to send a request with the unmodified values
+        if (getFormStore().getIsStepDirty()) {
+          // Send request to save the state on the server when going to the next step
+          // Access field values with getFormStore().getAllFieldValues() or getFormStore().getStepFieldValues()
+          await wait(1500)
+        }
+      },
+    },
+    steps: [
+      {
+        name: 'termsAndConditions',
+        components: [
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                steps: [
+                  { label: 'Consent' },
+                  { label: 'Date & time' },
+                  { label: 'Personal info' },
+                ],
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Terms and conditions',
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'paragraph',
+              componentParams: {
+                children:
+                  'Here usually comes a really long text of the terms and conditions. Once you accept this, you will not need to accept it again (only if you clear local storage).',
+              },
+            }),
+          },
+          {
+            name: 'areTermsAndConditionsAccepted',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'checkbox',
+              componentParams: {
+                label: 'I accept the terms and conditions',
+              },
+            }),
+            validationRules: {
+              mustBeEqualTo: {
+                value: true,
+                message:
+                  'You need to accept the terms and conditions to move forward',
+              },
+            },
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'goToNextStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            }),
+          },
+        ],
+      },
+      {
+        name: 'bookingDetails',
+        components: [
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                steps: [
+                  { label: 'Consent' },
+                  { label: 'Date & time' },
+                  { label: 'Personal info' },
+                ],
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Date & time',
+              },
+            }),
+          },
+          {
+            name: 'bookingDate',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'date',
+              componentParams: {
+                label: 'Choose a day for your booking',
+              },
+            }),
+            validationRules: {
+              required: {
+                message: 'Required',
+              },
+            },
+          },
+          {
+            name: 'bookingTime',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'select',
+              componentParams: {
+                value: async () => {
+                  const bookingDate =
+                    getFormStore().getFieldValue('bookingDate')
+
+                  if (!bookingDate) {
+                    return {
+                      label: 'Choose a time for your booking',
+                      data: [],
+                      disabled: true,
+                    }
+                  }
+
+                  const data = await getTimes(bookingDate)
+
+                  return {
+                    label: 'Choose a time for your booking',
+                    data,
+                    disabled: false,
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('bookingDate'),
+                ],
+              },
+            }),
+            reactToChanges: {
+              functionToRun: () => {
+                if (!getFormStore().getFieldValue('bookingDate')) {
+                  getFormStore().setFieldValue('bookingTime', '')
+                }
+              },
+              dependencies: () => [getFormStore().getFieldValue('bookingDate')],
+            },
+            validationRules: {
+              required: {
+                message: 'Required',
+              },
+            },
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                variant: 'outline',
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'goToNextStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            }),
+          },
+        ],
+      },
+      {
+        name: 'personalDetails',
+        components: [
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                steps: [
+                  { label: 'Consent' },
+                  { label: 'Date & time' },
+                  { label: 'Personal info' },
+                ],
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Personal info',
+              },
+            }),
+          },
+          {
+            name: 'fullName',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'text',
+              componentParams: {
+                label: 'Full name',
+              },
+            }),
+            validationRules: {
+              required: {
+                message: 'Required',
+              },
+            },
+          },
+          {
+            name: 'email',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'text',
+              componentParams: {
+                label: 'Email',
+              },
+            }),
+            validationRules: {
+              required: {
+                message: 'Required',
+              },
+              email: {
+                message: 'Must be a valid email',
+              },
+            },
+          },
+          {
+            name: 'phone',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'text',
+              componentParams: {
+                label: 'Phone',
+              },
+            }),
+            validationRules: {
+              required: {
+                message: 'Required',
+              },
+              phoneNumber: {
+                message: 'Must be a valid phone number',
+              },
+            },
+          },
+          {
+            name: 'otherGuests',
+            ...typeSafeFieldComponent({
+              formComponentMappingKey: 'nestedArray',
+              componentParams: {
+                label: 'Add guests',
+                emptyStateText: 'No guests added yet',
+              },
+            }),
+            validationRules: {
+              maxLength: {
+                message: 'Cannot add more than 3 guests',
+                value: 3,
+              },
+            },
+            nestedArrayComponents: [
+              {
+                name: 'fullName',
+                ...typeSafeFieldComponent({
+                  formComponentMappingKey: 'text',
+                  componentParams: {
+                    label: 'Full name',
+                  },
+                }),
+                validationRules: {
+                  required: {
+                    message: 'Required',
+                  },
+                },
+              },
+              {
+                name: 'email',
+                ...typeSafeFieldComponent({
+                  formComponentMappingKey: 'text',
+                  componentParams: {
+                    label: 'Email',
+                  },
+                }),
+                validationRules: {
+                  required: {
+                    message: 'Required',
+                  },
+                  email: {
+                    message: 'Must be a valid email',
+                  },
+                },
+              },
+              {
+                name: 'phone',
+                ...typeSafeFieldComponent({
+                  formComponentMappingKey: 'text',
+                  componentParams: {
+                    label: 'Phone',
+                  },
+                }),
+                validationRules: {
+                  required: {
+                    message: 'Required',
+                  },
+                  phoneNumber: {
+                    message: 'Must be a valid phone number',
+                  },
+                },
+              },
+              {
+                ...typeSafeUiComponent({
+                  formComponentMappingKey: 'removeNestedArrayItemButton',
+                  componentParams: {},
+                }),
+              },
+            ],
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'goToNextStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            }),
+          },
+        ],
+      },
+      {
+        name: 'success',
+        components: [
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                steps: [
+                  { label: 'Consent' },
+                  { label: 'Date & time' },
+                  { label: 'Personal info' },
+                ],
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Successful booking',
+                size: 'xl',
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'paragraph',
+              componentParams: {
+                value: () => {
+                  const bookingDate =
+                    getFormStore().getFieldValue('bookingDate')
+                  const bookingTime =
+                    getFormStore().getFieldValue('bookingTime')
+
+                  return {
+                    children: `Your booking has been confirmed for ${format(bookingDate, 'yyyy-MM-dd')} at ${bookingTime}. We look forward to seeing you then!`,
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('bookingDate'),
+                  getFormStore().getFieldValue('bookingTime'),
+                ],
+              },
+            }),
+          },
+          {
+            ...typeSafeUiComponent({
+              formComponentMappingKey: 'button',
+              componentParams: {
+                onClick: () => {
+                  getFormStore().resetFormState()
+                },
+                children: 'New booking',
+              },
+            }),
+          },
+        ],
+      },
+    ],
+  }))
+
+  return <Form formStore={exampleFormStore} />
+}
+```
+
+<BookingFormExample />
+
+## Conclusion
+
+Although there is an initial boilerplate necessary, there are serveral advantages of working with forms in this way:
+
+- **Consistency**: each of our forms will have a consistent way of handling common requirements like validation, conditional fields, nested fields, multiple steps, conditional steps, etc.
+- **Component system**: as our project grows, the component mapping categories (ui, wrapper, field) will enforce a more systemized way of maintaining our form's components
+- **Typescript**: type safety and IDE autocompletion will be available in our project's form configurations
+- **Integrations**: since we have an object representation of our forms, it will be easier to set up dynamic forms that can be configured from remote data sources like a **headless CMS**
+
+Even though it might seem that there are limitations in flexibility for some edge cases, every form's state is accessible via the return value of their specific [useCreateFormStore](/docs/form-store#usecreateformstore) invocation (or [useFormStore](/docs/form-store#useformstore)) so that it can be used by any component even outside the components defined in the mappings.

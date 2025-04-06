@@ -1,0 +1,36 @@
+{
+  "sortAz": [
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "resolutions",
+    "overrides",
+    "pnpmOverrides",
+    "scripts"
+  ],
+  "sortPackages": false,
+  "versionGroups": [
+    {
+      "label": "Use workspace protocol when developing local packages",
+      "dependencies": ["$LOCAL"],
+      "dependencyTypes": [
+        "prod",
+        "dev",
+        "peer",
+        "resolutions",
+        "overrides",
+        "pnpmOverrides"
+      ],
+      "pinVersion": "workspace:*"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "The version property of package.json files must always be exact",
+      "range": "",
+      "dependencies": ["**"],
+      "dependencyTypes": ["**"],
+      "packages": ["**"]
+    }
+  ]
+}

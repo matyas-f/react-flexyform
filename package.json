@@ -1,0 +1,44 @@
+{
+  "name": "@react-flexyform/monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.2",
+  "scripts": {
+    "build": "turbo run build",
+    "build:docs": "turbo run build --filter @react-flexyform/docs",
+    "build:form-components": "turbo run build --filter @react-flexyform/form-components",
+    "build:lib": "turbo run build --filter react-flexyform",
+    "changeset": "changeset",
+    "dev:docs": "turbo watch build --filter react-flexyform --filter @react-flexyform/form-components @react-flexyform/docs#dev",
+    "dev:storybook": "turbo watch build --filter react-flexyform --filter @react-flexyform/form-components @react-flexyform/storybook#dev",
+    "eslint": "turbo run eslint",
+    "eslint:fix": "turbo run eslint:fix",
+    "lint-staged": "turbo run lint-staged",
+    "prepare": "husky",
+    "prettier": "turbo run prettier",
+    "prettier:fix": "turbo run prettier:fix",
+    "release": "turbo run build --filter react-flexyform && changeset publish",
+    "syncpack": "syncpack lint",
+    "syncpack:fix": "syncpack fix-mismatches",
+    "syncpack:format": "syncpack format"
+  },
+  "dependencies": {
+    "next": "15.2.1"
+  },
+  "devDependencies": {
+    "@changesets/cli": "2.28.1",
+    "eslint": "9.22.0",
+    "husky": "9.1.7",
+    "patch-package": "8.0.0",
+    "prettier": "3.5.3",
+    "syncpack": "13.0.3",
+    "tsup": "8.4.0",
+    "turbo": "2.4.4",
+    "typescript": "5.8.2"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "zustand@4.5.6": "patches/zustand@4.5.6.patch"
+    }
+  }
+}

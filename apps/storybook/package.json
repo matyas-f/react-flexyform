@@ -1,0 +1,54 @@
+{
+  "name": "@react-flexyform/storybook",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:docs": "storybook build --docs",
+    "build:prod": "storybook build",
+    "dev": "storybook dev -p 6010",
+    "dev:docs": "storybook dev -p 6010 --docs",
+    "eslint": "eslint --report-unused-disable-directives --max-warnings 0",
+    "eslint:fix": "eslint . --ext ts,tsx --fix",
+    "lint-staged": "lint-staged",
+    "prettier": "prettier . --check",
+    "prettier:fix": "prettier . --write",
+    "test": "test-storybook --url http://localhost:6010",
+    "typecheck": "tsc --noEmit"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "pnpm eslint",
+      "pnpm prettier"
+    ],
+    "!(*.js|*.jsx|*.ts|*.tsx}": [
+      "pnpm prettier"
+    ]
+  },
+  "dependencies": {
+    "@mantine/core": "7.17.1",
+    "@mantine/dates": "7.17.1",
+    "@react-flexyform/form-components": "workspace:*",
+    "@storybook/addon-docs": "8.2.9",
+    "@storybook/addon-essentials": "8.2.9",
+    "@storybook/addon-interactions": "8.2.9",
+    "@storybook/addon-links": "8.2.9",
+    "@storybook/blocks": "8.2.9",
+    "@storybook/react": "8.2.9",
+    "@storybook/react-vite": "8.2.9",
+    "@storybook/testing-library": "0.2.2",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-flexyform": "workspace:*",
+    "storybook": "8.2.9"
+  },
+  "devDependencies": {
+    "@react-flexyform/config": "workspace:*",
+    "@storybook/test-runner": "0.19.1",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "@vitejs/plugin-react": "4.3.4",
+    "lint-staged": "15.4.3",
+    "vite": "5.4.14"
+  }
+}

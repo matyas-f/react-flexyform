@@ -1,0 +1,2996 @@
+---
+title: Examples
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import BookingFormExample from '../../app/components/code-examples/booking-form-example'
+import BookingFormSuccessExample from '../../app/components/code-examples/booking-form-success-example'
+import BookingFormErrorExample from '../../app/components/code-examples/booking-form-error-example'
+import SignUpFormExample from '../../app/components/code-examples/sign-up-form-example'
+import EditProfileFormExample from '../../app/components/code-examples/edit-profile-form-example'
+import EditProfileFormInModalExample from '../../app/components/code-examples/edit-profile-form-in-modal-example'
+import EditProfileFormWithSaveExample from '../../app/components/code-examples/edit-profile-form-with-save-example'
+import LoanApplicationWithScoringExample from '../../app/components/code-examples/loan-application-with-scoring-example'
+
+## Setup
+
+We will set up an application wrapper with all the form components mapped. We will also configure the typescript types (optional).
+
+#### Entry point [!toc]
+
+<Tabs items={['app.tsx']} defaultIndex={0}>
+
+```tsx tab="app.tsx"
+import { FormComponentMappingsProvider } from 'react-flexyform'
+import * as FormComponents from './your-project/form-components'
+
+const fieldComponentMappings = {
+  text: FormComponents.FormIntegratedTextField,
+  password: FormComponents.FormIntegratedPasswordField,
+  select: FormComponents.FormIntegratedSelectField,
+  toggle: FormComponents.FormIntegratedToggleField,
+  date: FormComponents.FormIntegratedDateField,
+  nestedArray: FormComponents.FormIntegratedNestedArrayField,
+}
+
+const uiComponentMappings = {
+  button: FormComponents.FormIntegratedButton,
+  submitButton: FormComponents.FormIntegratedSubmitButton,
+  goToNextStepButton: FormComponents.FormIntegratedGoToNextStepButton,
+  goToPreviousStepButton: FormComponents.FormIntegratedGoToPreviousStepButton,
+  removeNestedArrayItemButton:
+    FormComponents.FormIntegratedRemoveNestedArrayItemButton,
+  stepProgress: FormComponents.FormIntegratedStepProgress,
+  errorMessage: FormComponents.FormIntegratedErrorMessage,
+  title: FormComponents.FormIntegratedTitle,
+  paragraph: FormComponents.FormIntegratedParagraph,
+}
+
+const wrapperComponentMappings = {
+  borderedSection: FormComponents.FormIntegratedBorderedSection,
+}
+
+const internalComponentMappings = {
+  formWrapper: FormComponents.FormWrapper,
+  componentWrapper: FormComponents.ComponentWrapper,
+  initialDataLoadingIndicator: FormComponents.InitialDataLoadingIndicator,
+  initialDataLoadingError: FormComponents.InitialDataLoadingError,
+}
+
+export const CodeExampleApp = ({ children }) => {
+  return (
+    <FormComponentMappingsProvider
+      internalComponentMappings={internalComponentMappings}
+      fieldComponentMappings={fieldComponentMappings}
+      uiComponentMappings={uiComponentMappings}
+      wrapperComponentMappings={wrapperComponentMappings}
+    >
+      {children}
+    </FormComponentMappingsProvider>
+  )
+}
+```
+
+</Tabs>
+
+#### Internal components [!toc]
+
+<Tabs items={['form-wrapper.tsx', 'component-wrapper.tsx', 'initial-data-loading-indicator.tsx', 'initial-data-loading-error.tsx']} defaultIndex={0}>
+
+```tsx tab="form-wrapper.tsx"
+import { Grid, MantineProvider, Modal } from '@mantine/core'
+import { FormStore, useParentFormStore } from 'react-flexyform'
+import { ReactNode, useMemo } from 'react'
+import { MantineFormComponentsContext } from '../../mappings'
+import { useTheme } from 'next-themes'
+
+type Props = { children: ReactNode }
+
+export const FormWrapper = (props: Props) => {
+  const { theme } = useTheme()
+
+  const context = useParentFormStore(
+    (formStore: FormStore<MantineFormComponentsContext>) => formStore.context
+  )
+
+  const formContent = useMemo(
+    () => (
+      <Grid
+        columns={12}
+        gutter={context.formGridGutter || 'xl'}
+        mx="auto"
+        maw="500px"
+        {...(context.formGridStyleProps || {})}
+      >
+        {props.children}
+      </Grid>
+    ),
+    [context.formGridGutter, context.formGridStyleProps, props.children]
+  )
+
+  if (context.isFormInModal) {
+    return (
+      <MantineProvider>
+        <Modal opened onClose={() => context.onFormModalClose?.()}>
+          {formContent}
+        </Modal>
+      </MantineProvider>
+    )
+  }
+
+  return <MantineProvider>{formContent}</MantineProvider>
+}
+```
+
+```tsx tab="component-wrapper.tsx"
+import { useFormComponentParams } from 'react-flexyform'
+import { Box, GridCol, MantineStyleProps, StyleProp } from '@mantine/core'
+import { ReactNode } from 'react'
+
+export type Params = {
+  wrapperParams?: {
+    span?: StyleProp<number>
+    offset?: StyleProp<number>
+    styleProps?: MantineStyleProps
+    className?: string
+  }
+}
+
+export const ComponentWrapper = (props: { children: ReactNode }) => {
+  const {
+    styleProps = {},
+    className = '',
+    span = 12,
+    offset = 0,
+  } = useFormComponentParams<Params>().value.wrapperParams || {}
+
+  if (!props.children) {
+    return null
+  }
+
+  return (
+    <GridCol span={span} offset={offset} className={className} {...styleProps}>
+      {props.children}
+    </GridCol>
+  )
+}
+```
+
+```tsx tab="initial-data-loading-indicator.tsx"
+import { Center, GridCol, Loader } from '@mantine/core'
+
+export const InitialDataLoadingIndicator = () => {
+  return (
+    <GridCol span={12}>
+      <Center>
+        <Loader size={30} />
+      </Center>
+    </GridCol>
+  )
+}
+```
+
+```tsx tab="initial-data-loading-error.tsx"
+import { useParentFormStore } from 'react-flexyform'
+import { Button, Flex, GridCol, Text } from '@mantine/core'
+
+export const InitialDataLoadingError = () => {
+  const retryInitialDataLoading = useParentFormStore(
+    (formStore) => formStore.triggerInitialDataLoading
+  )
+  const initialDataLoadingError = useParentFormStore(
+    (formStore) => formStore.initialDataLoadingError
+  )
+
+  return (
+    <GridCol span={12}>
+      <Flex direction="column" align="center">
+        <Text size="lg" mb="lg" style={{ textAlign: 'center' }}>
+          {initialDataLoadingError?.message}
+        </Text>
+        <Button onClick={retryInitialDataLoading}>Retry</Button>
+      </Flex>
+    </GridCol>
+  )
+}
+```
+
+</Tabs>
+
+#### Field components [!toc]
+
+<Tabs items={['text.tsx', 'select.tsx', 'date.tsx', 'password.tsx', 'toggle.tsx', 'number.tsx', 'textarea.tsx', 'nested-array.tsx']} defaultIndex={0}>
+
+```tsx tab="text.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  useParentFormStore,
+} from 'react-flexyform'
+import { CheckIcon, Loader, TextInput, TextInputProps } from '@mantine/core'
+import { useMemo } from 'react'
+
+export type Params = TextInputProps
+
+export const FormIntegratedTextField = () => {
+  const field = useField()
+  const params = useFormComponentParams<Params>().value
+
+  const isDisabled = useParentFormStore(
+    (formStore) =>
+      formStore.isSubmitting || formStore.isChangingStep || formStore.isSaving
+  )
+
+  const rightSectionIcon = useMemo(() => {
+    if (field.state.isValidating) {
+      return <Loader size="sm" />
+    }
+
+    if (!field.state.validationError && field.state.didPassAsyncValidation) {
+      return <CheckIcon size="sm" />
+    }
+
+    return undefined
+  }, [
+    field.state.isValidating,
+    field.state.validationError,
+    field.state.didPassAsyncValidation,
+  ])
+
+  const fieldControls = useMemo(
+    () => ({
+      id: field.state.id,
+      value: field.state.value,
+      name: field.configuration.name,
+      onChange: field.methods.handleChange,
+      onBlur: field.methods.handleBlur,
+      error: field.state.validationError?.[0],
+      required: Boolean(field.configuration.validationRules?.required),
+      disabled: isDisabled,
+      rightSection: rightSectionIcon,
+    }),
+    [field, isDisabled, rightSectionIcon]
+  )
+
+  return <TextInput {...fieldControls} {...params} />
+}
+```
+
+```tsx tab="select.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  useParentFormStore,
+} from 'react-flexyform'
+import { Loader, Select, SelectProps } from '@mantine/core'
+import { useMemo } from 'react'
+
+export type Params = SelectProps & {
+  loading?: boolean
+}
+
+export const FormIntegratedSelectField = () => {
+  const field = useField()
+  const {
+    value: params,
+    isLoading: areDynamicComponentParamsLoading,
+    error: dynamicComponentParamsLoadingError,
+  } = useFormComponentParams<Params>()
+
+  const isDisabled = useParentFormStore(
+    (formStore) =>
+      formStore.isSubmitting || formStore.isChangingStep || formStore.isSaving
+  )
+
+  const fieldControls = useMemo(
+    () => ({
+      id: field.state.id,
+      value: field.state.value || null,
+      name: field.configuration.name,
+      onChange: (value: string | null) => field.methods.handleChange(value),
+      onBlur: field.methods.handleBlur,
+      error:
+        field.state.validationError?.[0] ||
+        dynamicComponentParamsLoadingError?.message,
+      required: Boolean(field.configuration.validationRules?.required),
+      disabled:
+        isDisabled ||
+        areDynamicComponentParamsLoading ||
+        params.data?.length === 0,
+      rightSection: areDynamicComponentParamsLoading ? (
+        <Loader size="sm" />
+      ) : undefined,
+    }),
+    [field, isDisabled, areDynamicComponentParamsLoading, params.data]
+  )
+
+  return <Select {...fieldControls} {...params} />
+}
+```
+
+```tsx tab="date.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  useParentFormStore,
+} from 'react-flexyform'
+import { DateInput, DateInputProps } from '@mantine/dates'
+import { useMemo } from 'react'
+
+export type Params = DateInputProps
+
+export const FormIntegratedDateField = () => {
+  const field = useField()
+  const params = useFormComponentParams<Params>().value
+
+  const isDisabled = useParentFormStore(
+    (formStore) =>
+      formStore.isSubmitting || formStore.isChangingStep || formStore.isSaving
+  )
+
+  const fieldControls = useMemo(
+    () => ({
+      id: field.state.id,
+      value: field.state.value,
+      name: field.configuration.name,
+      onChange: field.methods.handleChange,
+      onBlur: field.methods.handleBlur,
+      error: field.state.validationError?.[0],
+      required: Boolean(field.configuration.validationRules?.required),
+      disabled: isDisabled,
+    }),
+    [field, isDisabled]
+  )
+
+  return <DateInput {...fieldControls} {...params} />
+}
+```
+
+```tsx tab="password.tsx"
+import { useFormComponentParams, useField } from 'react-flexyform'
+import { PasswordInput, PasswordInputProps } from '@mantine/core'
+import { GridItem, wrapperParams } from '../wrappers/grid-item'
+
+export type Params = PasswordInputProps & { wrapperParams?: wrapperParams }
+
+export const PasswordField = () => {
+  const field = useField()
+  const { wrapperParams = {}, ...params } =
+    useFormComponentParams<Params>().value
+
+  if (!field) {
+    return null
+  }
+
+  const fieldControls = {
+    id: field.state.id,
+    value: field.state.value,
+    name: field.configuration.name,
+    onChange: field.methods.handleChange,
+    onBlur: field.methods.handleBlur,
+    error: field.state.validationError,
+  }
+
+  return (
+    <GridItem
+      style={wrapperParams?.containerStyle}
+      className={wrapperParams?.containerClassName}
+      span={wrapperParams?.span}
+    >
+      <PasswordInput {...fieldControls} {...params} />
+    </GridItem>
+  )
+}
+```
+
+```tsx tab="toggle.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  useParentFormStore,
+} from 'react-flexyform'
+import { Switch, SwitchProps } from '@mantine/core'
+import { useMemo } from 'react'
+
+export type Params = SwitchProps
+
+export const FormIntegratedToggleField = () => {
+  const field = useField()
+  const params = useFormComponentParams<Params>().value
+
+  const isDisabled = useParentFormStore(
+    (formStore) =>
+      formStore.isSubmitting || formStore.isChangingStep || formStore.isSaving
+  )
+
+  const fieldControls = useMemo(
+    () => ({
+      id: field.state.id,
+      checked: field.state.value,
+      name: field.configuration.name,
+      onChange: field.methods.handleChange,
+      onBlur: field.methods.handleBlur,
+      error: field.state.validationError?.[0],
+      required: Boolean(field.configuration.validationRules?.required),
+      disabled: isDisabled,
+    }),
+    [field, isDisabled]
+  )
+
+  return <Switch {...fieldControls} {...params} />
+}
+```
+
+```tsx tab="number.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  useParentFormStore,
+} from 'react-flexyform'
+import { omit } from 'lodash'
+import { NumberInput, NumberInputProps } from '@mantine/core'
+import { useMemo } from 'react'
+
+export type Params = NumberInputProps
+
+export const FormIntegratedNumberField = () => {
+  const field = useField()
+  const params = useFormComponentParams<Params>().value
+
+  const isDisabled = useParentFormStore(
+    (formStore) =>
+      formStore.isSubmitting || formStore.isChangingStep || formStore.isSaving
+  )
+
+  const fieldControls = useMemo(
+    () => ({
+      id: field.state.id,
+      name: field.configuration.name,
+      onChange: field.methods.handleChange,
+      onBlur: field.methods.handleBlur,
+      error: field.state.validationError?.[0],
+      required: Boolean(field.configuration.validationRules?.required),
+      value: field.state.value,
+      disabled: isDisabled,
+    }),
+    [field, isDisabled]
+  )
+
+  return <NumberInput {...fieldControls} {...params} />
+}
+```
+
+```tsx tab="textarea.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  useParentFormStore,
+} from 'react-flexyform'
+import { omit } from 'lodash'
+import { Textarea, TextareaProps } from '@mantine/core'
+import { useMemo } from 'react'
+
+export type Params = TextareaProps
+
+export const FormIntegratedTextareaField = () => {
+  const field = useField()
+  const params = useFormComponentParams<Params>().value
+
+  const isDisabled = useParentFormStore(
+    (formStore) =>
+      formStore.isSubmitting || formStore.isChangingStep || formStore.isSaving
+  )
+
+  const fieldControls = useMemo(
+    () => ({
+      id: field.state.id,
+      value: field.state.value,
+      name: field.configuration.name,
+      onChange: field.methods.handleChange,
+      onBlur: field.methods.handleBlur,
+      error: field.state.validationError?.[0],
+      required: Boolean(field.configuration.validationRules?.required),
+      disabled: isDisabled,
+    }),
+    [field, isDisabled]
+  )
+
+  return <Textarea {...fieldControls} {...params} />
+}
+```
+
+```tsx tab="nested-array.tsx"
+import {
+  useFormComponentParams,
+  useField,
+  NestedArrayComponents,
+} from 'react-flexyform'
+import {
+  Button,
+  Grid,
+  InputLabel,
+  MantineStyleProps,
+  Text,
+  TextProps,
+} from '@mantine/core'
+
+export type Params = TextProps & {
+  label?: string
+  emptyStateText?: string
+  nestedComponentsGridGutter?: string
+  nestedComponentsGridClassName?: string
+  nestedComponentsGridStyleProps?: MantineStyleProps
+}
+
+export const FormIntegratedNestedArrayField = () => {
+  const field = useField()
+  const {
+    label,
+    emptyStateText,
+    nestedComponentsGridClassName,
+    nestedComponentsGridGutter = 'xl',
+    nestedComponentsGridStyleProps = {},
+  } = useFormComponentParams<Params>().value
+
+  return (
+    <>
+      {label && (
+        <InputLabel
+          required={Boolean(field.configuration.validationRules?.required)}
+          mb="md"
+        >
+          {label}
+        </InputLabel>
+      )}
+      {emptyStateText && field.state.value.length === 0 && (
+        <Text size="xs">{emptyStateText || 'No items are added'}</Text>
+      )}
+      {field.state.value.length > 0 && (
+        <NestedArrayComponents
+          render={({ nestedArrayComponents, isLastIndex }) => (
+            <Grid
+              columns={12}
+              gutter={nestedComponentsGridGutter}
+              style={{
+                width: '100%',
+                borderRadius: 6,
+              }}
+              p="lg"
+              bd="1px solid gray.7"
+              mb={!isLastIndex ? 'xl' : undefined}
+              className={nestedComponentsGridClassName}
+              {...nestedComponentsGridStyleProps}
+            >
+              {nestedArrayComponents}
+            </Grid>
+          )}
+        />
+      )}
+      <Button
+        onClick={() => field.methods.addItemToArray()}
+        children="Add"
+        mt="md"
+        variant="outline"
+      />
+      {field.state.validationError?.[0] && (
+        <Text c="red" mt="md" size="sm">
+          {field.state.validationError[0]}
+        </Text>
+      )}
+    </>
+  )
+}
+```
+
+</Tabs>
+
+#### UI components [!toc]
+
+<Tabs items={['submit-button.tsx', 'go-to-next-step-button.tsx', 'go-to-previous-step-button.tsx', 'save-button.tsx', 'remove-nested-array-item-button.tsx', 'typography.tsx', 'step-progress.tsx', 'go-back-confirmation-dialog.tsx', 'error-message.tsx']} defaultIndex={0}>
+
+```tsx tab="submit-button.tsx"
+import { useFormComponentParams, useParentFormStore } from 'react-flexyform'
+import { Button, ButtonProps } from '@mantine/core'
+
+export type Params = ButtonProps
+
+export const FormIntegratedSubmitButton = () => {
+  const params = useFormComponentParams<Params>().value
+
+  const triggerSubmit = useParentFormStore(
+    (formStore) => formStore.triggerSubmit
+  )
+  const isSubmitting = useParentFormStore((formStore) => formStore.isSubmitting)
+  const isChangingStep = useParentFormStore(
+    (formStore) => formStore.isChangingStep
+  )
+
+  const onClick = () => {
+    triggerSubmit()
+  }
+
+  return (
+    <Button
+      children="Submit"
+      w="100%"
+      {...params}
+      onClick={onClick}
+      disabled={isChangingStep}
+      loading={isSubmitting}
+    />
+  )
+}
+```
+
+```tsx tab="go-to-next-step-button.tsx"
+import { useFormComponentParams, useParentFormStore } from 'react-flexyform'
+import { Button, ButtonProps } from '@mantine/core'
+
+export type Params = ButtonProps
+
+export const FormIntegratedGoToNextStepButton = () => {
+  const triggerGoToNextStep = useParentFormStore(
+    (formStore) => formStore.triggerGoToNextStep
+  )
+  const isChangingStep = useParentFormStore(
+    (formStore) => formStore.isChangingStep
+  )
+  const isGoingToNextStep = useParentFormStore(
+    (formStore) => formStore.isGoingToNextStep
+  )
+  const params = useFormComponentParams<Params>().value
+
+  const onClick = () => {
+    triggerGoToNextStep()
+  }
+
+  return (
+    <Button
+      children="Next"
+      w="100%"
+      {...params}
+      onClick={onClick}
+      disabled={isChangingStep}
+      loading={isGoingToNextStep}
+    />
+  )
+}
+```
+
+```tsx tab="go-to-previous-step-button.tsx"
+import { useFormComponentParams, useParentFormStore } from 'react-flexyform'
+import { Button, ButtonProps, Flex, Modal, Text } from '@mantine/core'
+
+const GoToPreviousStepConfirmationDialog = () => {
+  const setContext = useParentFormStore((formStore) => formStore.setContext)
+  const isGoingToPreviousStep = useParentFormStore(
+    (formStore) => formStore.isGoingToPreviousStep
+  )
+  const triggerGoToPreviousStep = useParentFormStore(
+    (formStore) => formStore.triggerGoToPreviousStep
+  )
+
+  const isConfirmGoBackModalOpen = useParentFormStore(
+    (formStore) => formStore.context.isConfirmGoBackModalOpen
+  )
+
+  const handleClose = () => {
+    setContext({ isConfirmGoBackModalOpen: false })
+  }
+
+  const handleConfirm = async () => {
+    await triggerGoToPreviousStep()
+    setContext({ isConfirmGoBackModalOpen: false })
+  }
+
+  return (
+    <Modal
+      opened={isConfirmGoBackModalOpen}
+      onClose={handleClose}
+      withCloseButton
+      title="Confirmation required"
+    >
+      <Text size="sm">
+        You will lose all the inputs you have made in this step. Are you sure
+        you want to go back?
+      </Text>
+      <Flex w="100%" justify="flex-end" mt="lg">
+        <Button
+          variant="outline"
+          onClick={handleClose}
+          mr="md"
+          disabled={isGoingToPreviousStep}
+        >
+          Close
+        </Button>
+        <Button onClick={handleConfirm} loading={isGoingToPreviousStep}>
+          Go back
+        </Button>
+      </Flex>
+    </Modal>
+  )
+}
+
+export const FormIntegratedGoToPreviousStepButton = () => {
+  const triggerGoToPreviousStep = useParentFormStore(
+    (formStore) => formStore.triggerGoToPreviousStep
+  )
+  const isChangingStep = useParentFormStore(
+    (formStore) => formStore.isChangingStep
+  )
+  const isGoingToPreviousStep = useParentFormStore(
+    (formStore) => formStore.isGoingToPreviousStep
+  )
+  const isFirstStep = useParentFormStore((formStore) =>
+    formStore.getIsFirstStep()
+  )
+  const isStepDirty = useParentFormStore((formStore) =>
+    formStore.getIsStepDirty()
+  )
+  const setContext = useParentFormStore((formStore) => formStore.setContext)
+
+  const params = useFormComponentParams<Params>().value
+
+  const onClick = () => {
+    if (isStepDirty) {
+      setContext({ isConfirmGoBackModalOpen: true })
+    } else {
+      triggerGoToPreviousStep()
+    }
+  }
+
+  return (
+    <>
+      <GoToPreviousStepConfirmationDialog />
+      <Button
+        children="Back"
+        w="100%"
+        {...params}
+        variant="outline"
+        disabled={isFirstStep || isChangingStep}
+        onClick={onClick}
+        loading={isGoingToPreviousStep}
+      />
+    </>
+  )
+}
+```
+
+```tsx tab="save-button.tsx"
+import { useFormComponentParams, useParentFormStore } from 'react-flexyform'
+import { Button, ButtonProps } from '@mantine/core'
+
+export type Params = ButtonProps
+
+export const FormIntegratedSaveButton = () => {
+  const triggerSave = useParentFormStore((formStore) => formStore.triggerSave)
+  const isChangingStep = useParentFormStore(
+    (formStore) => formStore.isChangingStep
+  )
+  const isStepDirty = useParentFormStore((formStore) =>
+    formStore.getIsStepDirty()
+  )
+  const isSaving = useParentFormStore((formStore) => formStore.isChangingStep)
+  const params = useFormComponentParams<Params>().value
+
+  const onClick = () => {
+    triggerSave()
+  }
+
+  return (
+    <Button
+      children="Save"
+      w="100%"
+      {...params}
+      onClick={onClick}
+      disabled={isChangingStep || !isStepDirty}
+      loading={isSaving}
+    />
+  )
+}
+```
+
+```tsx tab="remove-nested-array-item-button.tsx"
+import {
+  useFormComponentParams,
+  useParentField,
+  useNestedArrayItemInfo,
+} from 'react-flexyform'
+import { Button, ButtonProps } from '@mantine/core'
+
+export const FormIntegratedRemoveNestedArrayItemButton = () => {
+  const parentField = useParentField()
+  const componentParams = useFormComponentParams<ButtonProps>().value
+  const { nestedItemIndex, isNestedArrayItem } = useNestedArrayItemInfo()
+
+  if (!parentField || !isNestedArrayItem) {
+    return null
+  }
+
+  return (
+    <Button
+      children="Remove"
+      w="100%"
+      onClick={() => parentField.methods.removeItemFromArray(nestedItemIndex)}
+      {...componentParams}
+    />
+  )
+}
+```
+
+```tsx tab="typography.tsx"
+import { useFormComponentParams } from 'react-flexyform'
+import { Text, TextProps } from '@mantine/core'
+
+export type Params = TextProps & { children: string }
+
+export const FormIntegratedTitle = () => {
+  const params = useFormComponentParams<Params>().value
+
+  return <Text {...params} size="xl" fw="bolder" />
+}
+
+export const FormIntegratedParagraph = () => {
+  const params = useFormComponentParams<Params>().value
+
+  return <Text {...params} size="md" />
+}
+```
+
+```tsx tab="step-progress.tsx"
+import { useFormComponentParams, useParentFormStore } from 'react-flexyform'
+import { Stepper, StepperProps } from '@mantine/core'
+import { useMemo } from 'react'
+
+export type Params = Omit<StepperProps, 'children' | 'active'> & {
+  active?: number
+  steps: { label: string; description?: string; isActive?: true }[]
+}
+
+export const FormIntegratedStepProgress = () => {
+  const params = useFormComponentParams<Params>().value
+
+  const currentStepIndex = useParentFormStore((formStore) =>
+    formStore.getCurrentStepIndex()
+  )
+
+  const activeStepIndex = useMemo(
+    () => params.steps.findIndex((step) => step.isActive),
+    [params.steps]
+  )
+  return (
+    <Stepper
+      active={activeStepIndex !== -1 ? activeStepIndex : currentStepIndex}
+      size="sm"
+      {...params}
+    >
+      {params.steps.map((step) => (
+        <Stepper.Step
+          key={step.label}
+          label={step.label}
+          allowStepClick={false}
+          allowStepSelect={false}
+          description={step.description}
+        />
+      ))}
+    </Stepper>
+  )
+}
+```
+
+```tsx tab="go-back-confirmation-dialog.tsx"
+import { useParentFormStore } from 'react-flexyform'
+import { Button, Flex, Modal, Text } from '@mantine/core'
+
+export const FormIntegratedGoBackConfirmationDialog = () => {
+  const setContext = useParentFormStore((formStore) => formStore.setContext)
+  const isGoingToPreviousStep = useParentFormStore(
+    (formStore) => formStore.isGoingToPreviousStep
+  )
+  const triggerGoToPreviousStep = useParentFormStore(
+    (formStore) => formStore.triggerGoToPreviousStep
+  )
+
+  const isConfirmGoBackModalOpen = useParentFormStore(
+    (formStore) => formStore.context.isConfirmGoBackModalOpen
+  )
+
+  const handleClose = () => {
+    setContext({ isConfirmGoBackModalOpen: false })
+  }
+
+  const handleConfirm = async () => {
+    await triggerGoToPreviousStep()
+    setContext({ isConfirmGoBackModalOpen: false })
+  }
+
+  return (
+    <Modal
+      opened={isConfirmGoBackModalOpen}
+      onClose={handleClose}
+      withCloseButton
+      title="Confirmation required"
+    >
+      <Text size="sm">
+        You will lose all the inputs you have made in this step. Are you sure
+        you want to go back?
+      </Text>
+      <Flex w="100%" justify="flex-end" mt="lg">
+        <Button
+          variant="outline"
+          onClick={handleClose}
+          mr="md"
+          disabled={isGoingToPreviousStep}
+        >
+          Close
+        </Button>
+        <Button onClick={handleConfirm} loading={isGoingToPreviousStep}>
+          Go back
+        </Button>
+      </Flex>
+    </Modal>
+  )
+}
+```
+
+```tsx tab="error-message.tsx"
+import { useParentFormStore } from 'react-flexyform'
+import { Alert, Flex, Loader } from '@mantine/core'
+import { isEqual } from 'lodash'
+
+export const FormIntegratedErrorMessage = () => {
+  const stepValidationError = useParentFormStore(
+    (formStore) => formStore.stepValidationError
+  )
+  const isValidatingStep = useParentFormStore(
+    (formStore) => formStore.isValidatingStep
+  )
+
+  const submitError = useParentFormStore((formStore) => formStore.submitError)
+  const isSubmitting = useParentFormStore((formStore) => formStore.isSubmitting)
+
+  const stepChangeError = useParentFormStore(
+    (formStore) => formStore.stepChangeError
+  )
+  const isChangingStep = useParentFormStore(
+    (formStore) => formStore.isChangingStep
+  )
+
+  const autoSaveError = useParentFormStore(
+    (formStore) => formStore.autoSaveError
+  )
+
+  const invalidFieldNames = useParentFormStore(
+    (formStore) =>
+      formStore
+        .getInvalidFields()
+        .map(
+          (field) =>
+            formStore.getComponentParams(field.name)?.label || field.name
+        )
+        .join(', '),
+    isEqual
+  )
+
+  const isAnyFieldInvalid = useParentFormStore((formStore) =>
+    formStore.getIsAnyFieldInvalid()
+  )
+  const isEveryFieldValid = !isAnyFieldInvalid
+
+  if (
+    isEveryFieldValid &&
+    !stepValidationError &&
+    !submitError &&
+    !stepChangeError &&
+    !autoSaveError
+  ) {
+    return null
+  }
+
+  return (
+    <Flex direction="column" align="center" justify="center" gap="lg">
+      {isAnyFieldInvalid && (
+        <Alert color="red" title="Validation failed" w="100%">
+          Some fields are invalid ({invalidFieldNames}), please fix them before
+          proceeding.
+        </Alert>
+      )}
+      {isEveryFieldValid && stepValidationError && (
+        <Alert color="red" title="Validation failed" w="100%">
+          {stepValidationError}
+          {isValidatingStep && <Loader ml="sm" size="sm" />}
+        </Alert>
+      )}
+      {isEveryFieldValid && submitError && (
+        <Alert color="red" title="Submission failed" w="100%">
+          {submitError.message}
+          {isSubmitting && <Loader ml="sm" size="sm" />}
+        </Alert>
+      )}
+      {isEveryFieldValid && stepChangeError && (
+        <Alert color="red" title="Step change failed" w="100%">
+          {stepChangeError.message}
+          {isChangingStep && <Loader ml="sm" size="sm" />}
+        </Alert>
+      )}
+      {autoSaveError && (
+        <Alert color="red" title="Auto save failed" w="100%">
+          {autoSaveError.message}
+          {isChangingStep && <Loader ml="sm" size="sm" />}
+        </Alert>
+      )}
+    </Flex>
+  )
+}
+```
+
+</Tabs>
+
+#### Wrapper components [!toc]
+
+<Tabs items={['bordered-section.tsx']} defaultIndex={0}>
+
+```tsx tab="bordered-section.tsx"
+import { useFormComponentParams } from 'react-flexyform'
+import { Grid, GridCol, GridColProps, GridProps } from '@mantine/core'
+import { ReactNode } from 'react'
+
+export type Params = { wrapperParams?: GridColProps; gridParams?: GridProps }
+
+export const FormIntegratedBorderedSection = (props: {
+  children: ReactNode
+}) => {
+  const params = useFormComponentParams<Params>().value
+
+  return (
+    <GridCol
+      span={12}
+      bd="1px solid gray.7"
+      p="lg"
+      style={{
+        borderRadius: 6,
+      }}
+      {...(params.wrapperParams || {})}
+    >
+      <Grid columns={12} gutter="xl" {...(params.gridParams || {})}>
+        {props.children}
+      </Grid>
+    </GridCol>
+  )
+}
+```
+
+</Tabs>
+
+#### Typescript (optional) [!toc]
+
+To enable the `typeSafeFieldComponent`, `typeSafeUiComponent`, `typeSafeWrapperComponent` (learn more [here](/docs/typescript#form-component-mapping-keys-and-params)) you need to define the global types for the form component mappings:
+
+<Tabs items={['global.d.ts']} defaultIndex={0}>
+
+```tsx tab="global.d.ts"
+// Import the types from your components
+import {
+  TextFieldParams,
+  PasswordFieldParams,
+  TextareaFieldParams,
+  NumberFieldParams,
+  SelectFieldParams,
+  ToggleFieldParams,
+  DateFieldParams,
+  NestedArrayFieldParams,
+} from '@your-project/components/types'
+// ...rest of the imports
+
+declare global {
+  interface FormFieldComponentMappings {
+    text: TextFieldParams
+    password: PasswordFieldParams
+    textarea: TextareaFieldParams
+    number: NumberFieldParams
+    select: SelectFieldParams
+    toggle: ToggleFieldParams
+    date: DateFieldParams
+    nestedArray: NestedArrayFieldParams
+  }
+
+  interface FormUiComponentMappings {
+    stepProgress: StepProgressParams
+    // Does not accept any params
+    errorMessage: Record<string, never>
+    title: TypographyParams
+    paragraph: TypographyParams
+    prose: TypographyParams
+    button: ButtonParams
+    saveButton: ButtonParams
+    submitButton: ButtonParams
+    goToNextStepButton: ButtonParams
+    goToPreviousStepButton: ButtonParams
+    // Does not accept any params
+    goBackConfirmationDialog: Record<string, never>
+    removeNestedArrayItemButton: ButtonParams
+  }
+
+  interface FormWrapperComponentMappings {
+    borderedSection: BorderedSectionParams
+  }
+
+  interface FormContext {
+    formGridGutter?: StyleProp<MantineSpacing>
+    formGridClassName?: string
+    formGridStyleProps?: MantineStyleProps
+    isFormInModal?: boolean
+    onFormModalClose?: () => void
+    isConfirmGoBackModalOpen?: boolean
+  }
+
+  interface ComponentWrapperParams {
+    wrapperParams?: GridColProps
+  }
+}
+```
+
+</Tabs>
+
+## Single step form
+
+#### Sign up form
+
+Let's create a simple sign-up form with multiple types of field validation rules: required, min length, max length, email, strong password, matching passwords, async validation (email field).
+
+We can also see a simple implementation of responsive layout using a grid system: the first and last name fields will be on the same row on larger screens and separate rows on smaller ones.
+
+- Try including the word **"test"** in the **Email** field to get a field level async validation error
+- Try submitting the form with the word **"test"** being included the **First name** or **Last name** field to see the submission error message
+- `shouldSubmitOnEnter` being set to true will trigger the `events.onSubmit` function when the user presses the enter key while the focus is in a field
+
+<SignUpFormExample />
+
+```tsx
+import { Form, useCreateFormStore } from 'react-flexyform'
+import { CodeExampleWrapper } from '../ui/code-example-wrapper'
+
+export const SignUpFormExample = () => {
+  const signUpFormStore = useCreateFormStore('signUpForm', (getStoreState) => ({
+    events: {
+      onSubmit: async () => {
+        const formValues = getStoreState().getAllFieldValues()
+
+        await signUpUser(formValues)
+      },
+    },
+    shouldSubmitOnEnter: true,
+    components: [
+      {
+        type: 'ui',
+        formComponentMappingKey: 'title',
+        componentParams: {
+          children: 'Sign up',
+          size: 'xl',
+        },
+      },
+      {
+        name: 'firstName',
+        type: 'field',
+        formComponentMappingKey: 'text',
+        componentParams: {
+          label: 'First name',
+          wrapperParams: {
+            span: {
+              xs: 12,
+              sm: 6,
+            },
+          },
+        },
+        validationRules: {
+          required: {
+            message: 'This field is required',
+          },
+        },
+      },
+      {
+        name: 'lastName',
+        type: 'field',
+        formComponentMappingKey: 'text',
+        componentParams: {
+          label: 'Last name',
+          wrapperParams: {
+            span: {
+              xs: 12,
+              sm: 6,
+            },
+          },
+        },
+        validationRules: {
+          required: {
+            message: 'This field is required',
+          },
+        },
+      },
+      {
+        name: 'email',
+        type: 'field',
+        formComponentMappingKey: 'text',
+        componentParams: {
+          label: 'Email',
+        },
+        validationRules: {
+          required: {
+            message: 'This field is required',
+          },
+          email: {
+            message: 'Must be a valid email',
+          },
+          customAsyncValidation: async (abortController) => {
+            const email = getStoreState().getFieldValue('email')
+
+            if (!email) {
+              return ''
+            }
+
+            const isEmailAlreadyTaken = await checkIfEmailIsAlreadyTaken(
+              email,
+              // Pass in abort controller to cancel the request if necessary in case of race conditions
+              abortController
+            )
+
+            if (isEmailAlreadyTaken) {
+              return 'This email is already taken'
+            }
+
+            return ''
+          },
+        },
+      },
+      {
+        name: 'password',
+        type: 'field',
+        formComponentMappingKey: 'password',
+        componentParams: {
+          label: 'Password',
+        },
+        validationRules: {
+          required: {
+            message: 'This field is required',
+          },
+          minLength: {
+            value: 8,
+            message: () => {
+              const password = getStoreState().getFieldValue(
+                'password'
+              ) as string
+
+              return `Must be at least 8 characters long (current length ${password.length})`
+            },
+          },
+          maxLength: {
+            value: 20,
+            message: () => {
+              const password = getStoreState().getFieldValue(
+                'password'
+              ) as string
+
+              return `Must be maximum 20 characters long (current length ${password.length})`
+            },
+          },
+          onlyStrongPasswordCharacters: {
+            message:
+              'Must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+          },
+        },
+      },
+      {
+        name: 'passwordConfirmation',
+        validationRules: {
+          required: {
+            message: 'This field is required',
+          },
+          matchAnotherField: {
+            value: 'password',
+            message: 'Must match the previous password',
+          },
+        },
+        type: 'field',
+        formComponentMappingKey: 'password',
+        componentParams: {
+          label: 'Confirm password',
+        },
+      },
+      {
+        type: 'ui',
+        formComponentMappingKey: 'errorMessage',
+      },
+      {
+        type: 'ui',
+        formComponentMappingKey: 'submitButton',
+
+        shouldShowOnlyIf: {
+          value: () => !getStoreState().didSubmitSuccessfully,
+          dependencies: () => [getStoreState().didSubmitSuccessfully],
+        },
+      },
+      {
+        type: 'ui',
+        formComponentMappingKey: 'paragraph',
+        componentParams: {
+          children: 'Sign up successful!',
+        },
+        shouldShowOnlyIf: {
+          value: () => getStoreState().didSubmitSuccessfully,
+          dependencies: () => [getStoreState().didSubmitSuccessfully],
+        },
+      },
+    ],
+  }))
+
+  return <Form formStore={signUpFormStore} />
+}
+```
+
+## Multi step form
+
+### Booking form
+
+The following multi-step booking form showcases some important features:
+
+- Field validations
+- Next/back buttons and step progress (save state to server only if step was modified)
+- Conditional field: if checking the **I want a guide**, a new field will appear
+- Dynamic component params: the **Booking time** options are fetched dynamically based on the **Booking date**
+- Nested array field: the **Other participants** field allows adding a dynamic number of participants
+- Confirmation modal when trying to go back if the step was modified
+- Initial data loading and error handling with retry
+- After initial data loading is successful, the correct step is loaded
+
+<Tabs items={['No initial data', 'Initial data fetching - Success', 'Initial data fetching - Error with retry']}>
+
+<Tab value="No initial data">
+
+<BookingFormExample />
+
+```tsx
+import React from 'react'
+import {
+  CreateStoreMultiStepConfiguration,
+  Form,
+  FormStore,
+  useCreateFormStore,
+} from 'react-flexyform'
+import { format } from 'date-fns'
+
+export type FormStoreFormFields = {
+  service: string
+  withGuide: boolean
+  guide?: string
+  bookingDate: Date
+  bookingTime: string
+  fullName: string
+  email: string
+  phone: string
+  otherParticipants: { fullName: string; email: string; phone: string }[]
+}
+
+export const getBookingFormStoreBase = (
+  getFormStore: () => FormStore<FormStoreFormFields>
+): CreateStoreMultiStepConfiguration<FormStoreFormFields> => ({
+  events: {
+    onGoToNextStep: async () => {
+      // In case of going to the previous step, not modifying anything and going to the next step, there will be no need to send a request with the unmodified values
+      if (getFormStore().getIsStepDirty()) {
+        // Send request to save the state on the server when going to the next step
+        // Access field values with getFormStore().getAllFieldValues() or getFormStore().getStepFieldValues()
+        await saveBookingStep(
+          getFormStore().currentStepName,
+          getFormStore().getStepFieldValues()
+        )
+      }
+    },
+  },
+  steps: [
+    {
+      name: 'Service',
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Service',
+          },
+        },
+        {
+          name: 'service',
+          type: 'field',
+          formComponentMappingKey: 'select',
+          componentParams: {
+            label: 'Choose a service for your booking',
+            data: [
+              {
+                value: 'mountainClimbing',
+                label: 'Mountain climbing',
+              },
+              {
+                value: 'kayaking',
+                label: 'Kayaking',
+              },
+            ],
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+          },
+        },
+        {
+          name: 'withGuide',
+          type: 'field',
+          formComponentMappingKey: 'toggle',
+          componentParams: {
+            label: 'I want a guide',
+          },
+          defaultValue: false,
+        },
+        {
+          name: 'guide',
+          shouldShowOnlyIf: { withGuide: true },
+          type: 'field',
+          formComponentMappingKey: 'select',
+          componentParams: {
+            label: 'Choose a guide (optional)',
+            placeholder: 'Any guide is okay for me',
+            clearable: true,
+            data: [
+              {
+                value: 'johnWood',
+                label: 'John Wood',
+              },
+              {
+                value: 'christopherRock',
+                label: 'Christopher Rock',
+              },
+              {
+                value: 'annaWater',
+                label: 'Anna Water',
+              },
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToPreviousStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToNextStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+      ],
+    },
+    {
+      name: 'bookingDetails',
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Date & time',
+          },
+        },
+        {
+          name: 'bookingDate',
+          type: 'field',
+          formComponentMappingKey: 'date',
+          componentParams: {
+            label: 'Choose a day for your booking',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+          },
+        },
+        {
+          name: 'bookingTime',
+          type: 'field',
+          formComponentMappingKey: 'select',
+          componentParams: {
+            value: async () => {
+              const bookingDate = getFormStore().getFieldValue('bookingDate')
+
+              if (!bookingDate) {
+                return {
+                  label: 'Choose a time for your booking',
+                  description:
+                    'Depends on the date chosen, please choose a date first',
+                  data: [],
+                  disabled: true,
+                }
+              }
+
+              return {
+                label: 'Choose a time for your booking',
+                description:
+                  'Depends on the date chosen, please choose a date first',
+                data: await getAvailableTimeslotsForDate(bookingDate),
+                disabled: false,
+              }
+            },
+            dependencies: () => [getFormStore().getFieldValue('bookingDate')],
+          },
+          reactToChanges: {
+            functionToRun: () => {
+              const bookingDateField = getFormStore().getField('bookingDate')
+
+              if (
+                bookingDateField?.value?.getTime?.() !==
+                bookingDateField?.stepInitialValue?.getTime?.()
+              ) {
+                getFormStore().setFieldValue('bookingTime', '')
+              }
+            },
+            dependencies: () => [getFormStore().getFieldValue('bookingDate')],
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToPreviousStepButton',
+          componentParams: {
+            variant: 'outline',
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToNextStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+      ],
+    },
+    {
+      name: 'personalDetails',
+      shouldGoToNextStepOnEnter: true,
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Personal info',
+          },
+        },
+        {
+          name: 'fullName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Full name',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+          },
+        },
+        {
+          name: 'email',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Email',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+            email: {
+              message: 'Must be a valid email',
+            },
+          },
+        },
+        {
+          name: 'phone',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Phone',
+            description: 'Include country code too',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+            phoneNumber: {
+              message: 'Must be a valid phone number',
+            },
+          },
+        },
+        {
+          name: 'otherParticipants',
+          type: 'field',
+          formComponentMappingKey: 'nestedArray',
+          componentParams: {
+            label: 'Other participants (3 max)',
+            emptyStateText: 'No other participants added yet',
+          },
+          validationRules: {
+            maxLength: {
+              message: 'Cannot add more than 3 participants',
+              value: 3,
+            },
+          },
+          nestedArrayComponents: [
+            {
+              name: 'fullName',
+              type: 'field',
+              formComponentMappingKey: 'text',
+              componentParams: {
+                label: 'Full name',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              name: 'email',
+              type: 'field',
+              formComponentMappingKey: 'text',
+              componentParams: {
+                label: 'Email',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+                email: {
+                  message: 'Must be a valid email',
+                },
+              },
+            },
+            {
+              name: 'phone',
+              type: 'field',
+              formComponentMappingKey: 'text',
+              componentParams: {
+                label: 'Phone',
+                description: 'Include country code too',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+                phoneNumber: {
+                  message: 'Must be a valid phone number',
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'removeNestedArrayItemButton',
+            },
+          ],
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToPreviousStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToNextStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+      ],
+    },
+    {
+      name: 'success',
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Successful booking',
+            size: 'xl',
+          },
+        },
+        {
+          name: 'successMessage',
+          type: 'ui',
+          formComponentMappingKey: 'paragraph',
+          componentParams: {
+            value: () => {
+              const fieldValues = getFormStore().getAllFieldValues()
+
+              return {
+                children: `Your booking has been confirmed for ${format(fieldValues?.bookingDate, 'yyyy-MM-dd')} at ${fieldValues?.bookingTime}. We look forward to seeing you then!`,
+              }
+            },
+            dependencies: () => [
+              getFormStore().getFieldValue('bookingDate'),
+              getFormStore().getFieldValue('bookingTime'),
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'button',
+          componentParams: {
+            onClick: () => {
+              getFormStore().resetFormState()
+            },
+            children: 'New booking',
+          },
+        },
+      ],
+    },
+  ],
+})
+
+export const BookingFormExample = () => {
+  const bookingFormStore = useCreateFormStore<FormStoreFormFields>(
+    'bookingForm',
+    getBookingFormStoreBase
+  )
+
+  return <Form formStore={bookingFormStore} />
+}
+```
+
+</Tab>
+
+<Tab value="Initial data fetching - Success">
+
+<BookingFormSuccessExample />
+
+```tsx
+import React from 'react'
+import { Form, useCreateFormStore } from 'react-flexyform'
+import {
+  FormStoreFormFields,
+  getBookingFormStoreBase,
+  // Imported from 'No initial data' tab
+} from './booking-form-example'
+
+export const BookingFormSuccessExample = () => {
+  const bookingFormStore = useCreateFormStore<FormStoreFormFields>(
+    'bookingFormSuccess',
+    (getFormStore) => ({
+      ...getBookingFormStoreBase(getFormStore),
+      initialData: async () => {
+        /* In this example the getInitialData function returns the following object:
+          {
+            service: 'kayaking',
+            withGuide: false,
+            bookingDate: new Date(),
+            bookingTime: '10:00',
+            fullName: '',
+            email: '',
+            phone: '',
+            otherParticipants: [],
+          } */
+        return await getInitialData()
+      },
+      startAtStep: () => {
+        const firstIncompleteStepName =
+          getFormStore().getFirstStepNameWithRequiredFieldsNotCompleted()
+
+        return firstIncompleteStepName || getFormStore().getLastStep().name
+      },
+    })
+  )
+
+  return <Form formStore={bookingFormStore} />
+}
+```
+
+</Tab>
+
+<Tab value="Initial data fetching - Error with Retry">
+
+Same configuration as in the **Initial data fetching - Success** tab, but the request fails but we will be able to retry it and it will work.
+
+<BookingFormErrorExample />
+
+</Tab>
+
+</Tabs>
+
+### Loan application form
+
+This example illustrates some additional features:
+
+- Step level validation that depends on multiple fields that prevents proceeding if the applicant is not eligible (first step if score is smaller than 40)
+- Conditional step (when **Self-employed** is selected, the **Business details** step will be available)
+- Custom field validation that depends on the value of other fields (loan amount cannot be greater than the maximum loan amount based on the applicant's score)
+- Wrapper component usage (first step bordered section)
+
+<LoanApplicationWithScoringExample />
+
+```tsx
+import React from 'react'
+import { useCreateFormStore, Form } from 'react-flexyform'
+import { CodeExampleWrapper } from '../ui/code-example-wrapper'
+
+type LoanApplicationFields = {
+  employmentStatus: string
+  annualIncome: number
+  savings: number
+  outstandingLoans: number
+  businessFoundedAt?: Date
+  businessType?: string
+  businessDescription?: string
+  numberOfEmployees?: number
+  lastYearRevenue?: number
+  requestedAmount: number
+  loanPurpose: string
+  loanTerm: number
+}
+
+const calculateLoanScore = (formData: Partial<LoanApplicationFields>) => {
+  let score = 0
+
+  if (formData.savings) {
+    if (formData.savings >= 200000) {
+      score += 50
+    } else if (formData.savings >= 100000) {
+      score += 30
+    } else if (formData.savings >= 50000) {
+      score += 20
+    } else if (formData.savings >= 30000) {
+      score += 10
+    } else {
+      score += 0
+    }
+  }
+
+  if (formData.annualIncome) {
+    if (formData.annualIncome >= 100000) {
+      score += 30
+    } else if (formData.annualIncome >= 75000) {
+      score += 25
+    } else if (formData.annualIncome >= 50000) {
+      score += 20
+    } else if (formData.annualIncome >= 30000) {
+      score += 15
+    } else {
+      score += 5
+    }
+  }
+
+  if (formData.employmentStatus) {
+    if (formData.employmentStatus === 'employed') {
+      score += 25
+    } else if (formData.employmentStatus === 'self-employed') {
+      score += 10
+    } else {
+      score += 0
+    }
+  }
+
+  if (formData.outstandingLoans !== undefined) {
+    if (formData.outstandingLoans === 0) {
+      score += 10
+    } else if (formData.outstandingLoans <= 1) {
+      score += 5
+    } else if (formData.outstandingLoans <= 2) {
+      score += 0
+    } else {
+      score += -5
+    }
+  }
+
+  const isEligible = score >= 40
+  const maxLoanAmount = Math.min(formData.annualIncome! * 0.8, 500000)
+  const interestRate = Math.max(5 + (70 - score) * 0.2, 5)
+
+  return {
+    score,
+    maxLoanAmount,
+    interestRate,
+    isEligible,
+  }
+}
+
+export const LoanApplicationFormExample = () => {
+  const loanApplicationFormStore = useCreateFormStore<LoanApplicationFields>(
+    'loanApplicationForm',
+    (getFormStore) => ({
+      events: {
+        onSubmit: async () => {
+          const formData = getFormStore().getAllFieldValues()
+
+          await submitLoanApplication(formData)
+        },
+        onSubmitSuccess: () => {
+          // Go to the success step
+          getFormStore().triggerGoToNextStep()
+        },
+      },
+      steps: [
+        {
+          name: 'financialDetails',
+          shouldGoToNextStepOnEnter: true,
+          components: [
+            {
+              type: 'ui',
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                value: () => {
+                  const isSelfEmployed =
+                    getFormStore().getFieldValue('employmentStatus') ===
+                    'self-employed'
+
+                  return {
+                    steps: [
+                      { label: 'Financial' },
+                      { label: isSelfEmployed ? 'Business' : '' },
+                      { label: 'Loan terms' },
+                      { label: 'Review' },
+                    ].filter((l) => Boolean(l.label)),
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('employmentStatus'),
+                ],
+              },
+            },
+            {
+              type: 'wrapper',
+              name: 'financialDetailsFieldsWrapper',
+              formComponentMappingKey: 'borderedSection',
+              wrapping: 'start',
+            },
+            {
+              type: 'field',
+              name: 'annualIncome',
+              formComponentMappingKey: 'number',
+              defaultValue: 0,
+              componentParams: {
+                label: 'Annual income',
+                leftSection: '$',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'employmentStatus',
+              formComponentMappingKey: 'select',
+              componentParams: {
+                label: 'Employment status',
+                data: [
+                  { value: 'employed', label: 'Employed' },
+                  { value: 'self-employed', label: 'Self-employed' },
+                  { value: 'unemployed', label: 'Unemployed' },
+                ],
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'outstandingLoans',
+              formComponentMappingKey: 'number',
+              defaultValue: 0,
+              componentParams: {
+                label: 'Number of outstanding loans',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'wrapper',
+              name: 'financialDetailsFieldsWrapper',
+              formComponentMappingKey: 'borderedSection',
+              wrapping: 'end',
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'paragraph',
+              componentParams: {
+                value: () => {
+                  const formData = getFormStore().getAllFieldValues()
+                  const loanScore = calculateLoanScore(formData)
+
+                  return {
+                    children: `Your current credit score is ${loanScore.score}`,
+                  }
+                },
+                dependencies: () => [
+                  calculateLoanScore(getFormStore().getAllFieldValues()).score,
+                ],
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'errorMessage',
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToNextStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+          ],
+          validate: () => {
+            const formData = getFormStore().getAllFieldValues()
+            const loanScore = calculateLoanScore(formData)
+
+            if (!loanScore.isEligible) {
+              return 'You need to score at least 40 points to be eligible.'
+            }
+
+            return ''
+          },
+        },
+        {
+          name: 'businessDetails',
+          shouldGoToNextStepOnEnter: true,
+          shouldSkip: () => {
+            const isSelfEmployed =
+              getFormStore().getFieldValue('employmentStatus') ===
+              'self-employed'
+
+            return !isSelfEmployed
+          },
+          components: [
+            {
+              type: 'ui',
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                value: () => {
+                  const isSelfEmployed =
+                    getFormStore().getFieldValue('employmentStatus') ===
+                    'self-employed'
+
+                  return {
+                    steps: [
+                      { label: 'Financial' },
+                      { label: isSelfEmployed ? 'Business' : '' },
+                      { label: 'Loan terms' },
+                      { label: 'Review' },
+                    ].filter((l) => Boolean(l.label)),
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('employmentStatus'),
+                ],
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Business details',
+              },
+            },
+            {
+              type: 'field',
+              name: 'businessFoundedAt',
+              formComponentMappingKey: 'date',
+              componentParams: {
+                label: 'Founded at',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'businessType',
+              formComponentMappingKey: 'select',
+              componentParams: {
+                label: 'Type',
+                data: [
+                  { value: 'LLC', label: 'LLC' },
+                  {
+                    value: 'sole-proprietorship',
+                    label: 'Sole Proprietorship',
+                  },
+                  { value: 'corporation', label: 'Corporation' },
+                  { value: 'partnership', label: 'Partnership' },
+                  { value: 'non-profit', label: 'Non-profit' },
+                  { value: 'other', label: 'Other' },
+                ],
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'businessDescription',
+              formComponentMappingKey: 'textarea',
+              componentParams: {
+                label: 'Describe your business',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'numberOfEmployees',
+              formComponentMappingKey: 'number',
+              componentParams: {
+                label: 'Number of employees',
+                defaultValue: 1,
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'lastYearRevenue',
+              formComponentMappingKey: 'number',
+              componentParams: {
+                label: "Last year's revenue",
+                leftSection: '$',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'errorMessage',
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToNextStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+          ],
+        },
+        {
+          name: 'loanTerms',
+          shouldGoToNextStepOnEnter: true,
+          components: [
+            {
+              type: 'ui',
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                value: () => {
+                  const isSelfEmployed =
+                    getFormStore().getFieldValue('employmentStatus') ===
+                    'self-employed'
+
+                  return {
+                    steps: [
+                      { label: 'Financial' },
+                      { label: isSelfEmployed ? 'Business' : '' },
+                      { label: 'Loan terms' },
+                      { label: 'Review' },
+                    ].filter((l) => Boolean(l.label)),
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('employmentStatus'),
+                ],
+              },
+            },
+            {
+              type: 'field',
+              name: 'requestedAmount',
+              formComponentMappingKey: 'number',
+              defaultValue: 0,
+              componentParams: {
+                value: () => {
+                  const formData = getFormStore().getAllFieldValues()
+                  const loanScore = calculateLoanScore(formData)
+
+                  return {
+                    label: 'Requested loan amount',
+                    leftSection: '$',
+                    description: `Max loan amount based on your credit score: $${loanScore.maxLoanAmount.toFixed(2)}`,
+                  }
+                },
+                dependencies: () => [
+                  calculateLoanScore(getFormStore().getAllFieldValues())
+                    .maxLoanAmount,
+                ],
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                  priority: 1,
+                },
+                customValidation: {
+                  validate: () => {
+                    const formData = getFormStore().getAllFieldValues()
+                    const loanScore = calculateLoanScore(formData)
+
+                    if (formData.requestedAmount > loanScore.maxLoanAmount) {
+                      return `The requested amount exceeds your maximum eligible amount of $${loanScore.maxLoanAmount.toFixed(2)}`
+                    }
+
+                    return ''
+                  },
+                  priority: 2,
+                },
+                dependencies: () => [
+                  calculateLoanScore(getFormStore().getAllFieldValues())
+                    .maxLoanAmount,
+                  getFormStore().getFieldValue('requestedAmount'),
+                ],
+              },
+            },
+            {
+              type: 'field',
+              name: 'loanPurpose',
+              formComponentMappingKey: 'textarea',
+              componentParams: {
+                label: 'Loan purpose',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+              },
+            },
+            {
+              type: 'field',
+              name: 'loanTerm',
+              formComponentMappingKey: 'number',
+              componentParams: {
+                label: 'Loan term (months)',
+              },
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+                minValue: {
+                  message: 'Loan term must be at least 6 months',
+                  value: 6,
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'errorMessage',
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToNextStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+          ],
+        },
+        {
+          name: 'review',
+          components: [
+            {
+              type: 'ui',
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                value: () => {
+                  const isSelfEmployed =
+                    getFormStore().getFieldValue('employmentStatus') ===
+                    'self-employed'
+
+                  return {
+                    steps: [
+                      { label: 'Financial' },
+                      { label: isSelfEmployed ? 'Business' : '' },
+                      { label: 'Loan terms' },
+                      { label: 'Review' },
+                    ].filter((l) => Boolean(l.label)),
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('employmentStatus'),
+                ],
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Loan application summary',
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'prose',
+              componentParams: {
+                value: () => {
+                  return {
+                    children: (
+                      <>
+                        <b>Financial Information:</b>
+                        <p>
+                          Annual Income: $
+                          {getFormStore().getFieldValue('annualIncome')}
+                        </p>
+                        <p>
+                          Employment Status:{' '}
+                          {getFormStore().getFieldValue('employmentStatus')}
+                        </p>
+                        <p>
+                          Outstanding Loans:
+                          {getFormStore().getFieldValue('outstandingLoans')}
+                        </p>
+                        <br />
+                        <b>Eligibility:</b>
+                        <p>
+                          Credit Score:{' '}
+                          {
+                            calculateLoanScore(
+                              getFormStore().getAllFieldValues()
+                            ).score
+                          }{' '}
+                          points
+                        </p>
+                        <p>
+                          Interest Rate:{' '}
+                          {
+                            calculateLoanScore(
+                              getFormStore().getAllFieldValues()
+                            ).interestRate
+                          }
+                          %
+                        </p>
+                        <p>
+                          Max Loan Amount: $
+                          {calculateLoanScore(
+                            getFormStore().getAllFieldValues()
+                          ).maxLoanAmount.toFixed(2)}
+                        </p>
+                        <br />
+                        <b>Loan Details:</b>
+                        <p>
+                          Requested Amount: $
+                          {getFormStore().getFieldValue('requestedAmount')}
+                        </p>
+                        <p>
+                          Purpose: {getFormStore().getFieldValue('loanPurpose')}
+                        </p>
+                        <p>
+                          Term: {getFormStore().getFieldValue('loanTerm')}{' '}
+                          months
+                        </p>
+                      </>
+                    ),
+                  }
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'errorMessage',
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'goToPreviousStepButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'submitButton',
+              componentParams: {
+                wrapperParams: {
+                  span: 6,
+                },
+              },
+            },
+          ],
+        },
+        {
+          name: 'success',
+          components: [
+            {
+              type: 'ui',
+              formComponentMappingKey: 'stepProgress',
+              componentParams: {
+                value: () => {
+                  const isSelfEmployed =
+                    getFormStore().getFieldValue('employmentStatus') ===
+                    'self-employed'
+
+                  return {
+                    steps: [
+                      { label: 'Financial' },
+                      { label: isSelfEmployed ? 'Business' : '' },
+                      { label: 'Loan terms' },
+                      { label: 'Review' },
+                    ].filter((l) => Boolean(l.label)),
+                  }
+                },
+                dependencies: () => [
+                  getFormStore().getFieldValue('employmentStatus'),
+                ],
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'title',
+              componentParams: {
+                children: 'Success',
+              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'paragraph',
+              componentParams: {
+                children:
+                  'Your loan application has been submitted successfully. We will contact you shortly.',
+              },
+            },
+          ],
+        },
+      ],
+    })
+  )
+
+  return <Form formStore={loanApplicationFormStore} />
+}
+```
+
+## Auto save
+
+#### Edit profile form
+
+The following edit profile form showcases the auto-save feature:
+
+- The form will be saved after second passes after the last change made and there are no validation errors
+- A loading indicator will be shown while saving
+- If the **First name** or **Last name** field contains the word **"test"**, an error message will be shown
+- In the **Form rendered in modal** tab we can see how the form can be rendered in a modal
+- How the [useCreateFormStore](/docs/form-store#usecreateformstore) hook's `resetStoreOnMount` option can be used to keep the form state even if the component is unmounted and mounted again
+- In the **Save instead of auto save** tab we can see how the [triggerSave](/docs/form-store#triggersave) event resets the [isDirty](/docs/form-store#fields) state and we can use it to disable the button for optimal user experience
+
+<Tabs items={['Default', 'Form rendered in modal', 'Save instead of auto save']} defaultIndex={0}>
+<Tab value="Default">
+
+<EditProfileFormExample />
+
+```tsx
+import { Form, useCreateFormStore } from 'react-flexyform'
+import { CodeExampleWrapper } from '../ui/code-example-wrapper'
+
+export const EditProfileFormExample = () => {
+  const editProfileFormStore = useCreateFormStore(
+    'editProfileForm',
+    (getStoreState) => ({
+      initialData: {
+        firstName: 'John',
+        lastName: 'Smith',
+        email: 'john.smith@gmail.com',
+      },
+      autoSaveOptions: {
+        enabled: true,
+        autoSaveOn: ['fieldValueChange'],
+        autoSaveDebounceDurationInMs: 1000,
+      },
+      validationOptions: {
+        validateFieldsOn: ['fieldValueChange'],
+      },
+      events: {
+        onSave: async (abortController) => {
+          // Pass in abort controller to cancel the request if necessary in case of race conditions
+          await saveProfile(getFormStore.getAllFieldValues(), abortController)
+        },
+      },
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Edit profile',
+            size: 'xl',
+          },
+        },
+        {
+          name: 'firstName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'First name',
+            wrapperParams: {
+              span: {
+                xs: 12,
+                sm: 6,
+              },
+            },
+          },
+          validationRules: {
+            required: {
+              message: 'This field is required',
+            },
+          },
+        },
+        {
+          name: 'lastName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Last name',
+            wrapperParams: {
+              span: {
+                xs: 12,
+                sm: 6,
+              },
+            },
+          },
+          validationRules: {
+            required: {
+              message: 'This field is required',
+            },
+          },
+        },
+        {
+          name: 'email',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Email',
+            disabled: true,
+          },
+        },
+        {
+          name: 'github',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Github profile',
+          },
+          validationRules: {
+            url: {
+              message: 'Must be a valid URL',
+            },
+          },
+        },
+        {
+          name: 'bio',
+          type: 'field',
+          formComponentMappingKey: 'textarea',
+          componentParams: {
+            label: 'Bio',
+          },
+          validationRules: {
+            maxLength: {
+              value: 100,
+              message: () =>
+                `Max 100 characters allowed (current: ${getStoreState().getFieldValue('bio')?.length || 0})`,
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'errorMessage',
+        },
+      ],
+    })
+  )
+
+  return <Form formStore={editProfileFormStore} />
+}
+```
+
+</Tab>
+
+<Tab value="Form rendered in modal">
+
+<EditProfileFormInModalExample />
+
+```tsx
+import React from 'react'
+import { Form, useCreateFormStore } from 'react-flexyform'
+import { CodeExampleWrapper } from '../ui/code-example-wrapper'
+
+const FormModal = (props: { onModalClose: () => void }) => {
+  const editProfileFormInModalStore = useCreateFormStore(
+    'editProfileFormInModal',
+    (getStoreState) => ({
+      context: {
+        isFormInModal: true,
+        onFormModalClose: () => {
+          props.onModalClose()
+        },
+      },
+      initialData: {
+        firstName: 'John',
+        lastName: 'Smith',
+        email: 'john.smith@gmail.com',
+      },
+      autoSaveOptions: {
+        enabled: true,
+        autoSaveOn: ['fieldValueChange'],
+        autoSaveDebounceDurationInMs: 1000,
+      },
+      validationOptions: {
+        validateFieldsOn: ['fieldValueChange'],
+      },
+      events: {
+        onAutoSave: async (abortController) => {
+          // Pass in abort controller to cancel the request if necessary in case of race conditions
+          await saveProfile(getFormStore.getAllFieldValues(), abortController)
+        },
+      },
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Edit profile',
+            size: 'xl',
+          },
+        },
+        {
+          name: 'firstName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'First name',
+            wrapperParams: {
+              span: {
+                xs: 12,
+                sm: 6,
+              },
+            },
+          },
+          validationRules: {
+            required: {
+              message: 'This field is required',
+            },
+          },
+        },
+        {
+          name: 'lastName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Last name',
+            wrapperParams: {
+              span: {
+                xs: 12,
+                sm: 6,
+              },
+            },
+          },
+          validationRules: {
+            required: {
+              message: 'This field is required',
+            },
+          },
+        },
+        {
+          name: 'email',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Email',
+            disabled: true,
+          },
+        },
+        {
+          name: 'github',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Github profile',
+          },
+          validationRules: {
+            url: {
+              message: 'Must be a valid URL',
+            },
+          },
+        },
+        {
+          name: 'bio',
+          type: 'field',
+          formComponentMappingKey: 'textarea',
+          componentParams: {
+            label: 'Bio',
+          },
+          validationRules: {
+            maxLength: {
+              value: 100,
+              message: () =>
+                `Max 100 characters allowed (current: ${getStoreState().getFieldValue('bio')?.length || 0})`,
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'errorMessage',
+        },
+      ],
+    }),
+    {
+      resetStoreOnMount: false,
+    }
+  )
+
+  return <Form formStore={editProfileFormInModalStore} />
+}
+
+export const EditProfileFormInModalExample = () => {
+  const [isFormModalOpen, setIsFormModalOpen] = React.useState(false)
+
+  return (
+    <div>
+      <button onClick={() => setIsFormModalOpen(true)}>
+        Click to open edit profile modal
+      </button>
+      {isFormModalOpen && (
+        <FormModal
+          onModalClose={() => {
+            setIsFormModalOpen(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+```
+
+</Tab>
+
+<Tab value="Save instead of auto save">
+
+<EditProfileFormWithSaveExample />
+
+```tsx
+import { Form, useCreateFormStore } from 'react-flexyform'
+import { CodeExampleWrapper } from '../ui/code-example-wrapper'
+
+export const EditProfileFormWithSaveExample = () => {
+  const editProfileFormStoreWithSave = useCreateFormStore(
+    'editProfileFormWithSave',
+    (getStoreState) => ({
+      initialData: {
+        firstName: 'John',
+        lastName: 'Smith',
+        email: 'john.smith@gmail.com',
+      },
+      autoSaveOptions: {
+        enabled: false,
+      },
+      validationOptions: {
+        validateFieldsOn: ['fieldBlur', 'save'],
+        reValidateFieldsOn: ['fieldValueChange'],
+      },
+      shouldSaveOnEnter: true,
+      events: {
+        onAutoSave: async (abortController) => {
+          // Pass in abort controller to cancel the request if necessary in case of race conditions
+          await saveProfile(getFormStore().getAllFieldValues(), abortController)
+        },
+      },
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Edit profile',
+            size: 'xl',
+          },
+        },
+        {
+          name: 'firstName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'First name',
+            wrapperParams: {
+              span: {
+                xs: 12,
+                sm: 6,
+              },
+            },
+          },
+          validationRules: {
+            required: {
+              message: 'This field is required',
+            },
+          },
+        },
+        {
+          name: 'lastName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Last name',
+            wrapperParams: {
+              span: {
+                xs: 12,
+                sm: 6,
+              },
+            },
+          },
+          validationRules: {
+            required: {
+              message: 'This field is required',
+            },
+          },
+        },
+        {
+          name: 'email',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Email',
+            disabled: true,
+          },
+        },
+        {
+          name: 'github',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Github profile',
+          },
+          validationRules: {
+            url: {
+              message: 'Must be a valid URL',
+            },
+          },
+        },
+        {
+          name: 'bio',
+          type: 'field',
+          formComponentMappingKey: 'textarea',
+          componentParams: {
+            label: 'Bio',
+          },
+          validationRules: {
+            maxLength: {
+              value: 100,
+              message: () =>
+                `Max 100 characters allowed (current: ${getStoreState().getFieldValue('bio')?.length || 0})`,
+            },
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'errorMessage',
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'saveButton',
+        },
+      ],
+    })
+  )
+
+  return <Form formStore={editProfileFormStoreWithSave} />
+}
+```
+
+</Tab>
+
+</Tabs>

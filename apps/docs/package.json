@@ -1,0 +1,56 @@
+{
+  "name": "@react-flexyform/docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port 3332",
+    "eslint": "eslint --report-unused-disable-directives --max-warnings 0",
+    "eslint:fix": "eslint . --ext ts,tsx --fix",
+    "generate": "node ./generate-types-docs.mjs",
+    "lint-staged": "lint-staged",
+    "postinstall": "fumadocs-mdx",
+    "prettier": "prettier . --check",
+    "prettier:fix": "prettier . --write",
+    "start": "next start",
+    "tailwind": "tailwindcss -i ./app/global.css -o ./out.css",
+    "typecheck": "tsc --noEmit"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "pnpm eslint",
+      "pnpm prettier"
+    ],
+    "!(*.js|*.jsx|*.ts|*.tsx}": [
+      "pnpm prettier"
+    ]
+  },
+  "dependencies": {
+    "@mantine/core": "7.17.1",
+    "@mantine/dates": "7.17.1",
+    "@react-flexyform/form-components": "workspace:*",
+    "clsx": "2.1.1",
+    "date-fns": "3.6.0",
+    "fumadocs-core": "15.0.15",
+    "fumadocs-mdx": "11.5.6",
+    "fumadocs-typescript": "3.1.0",
+    "fumadocs-ui": "15.0.15",
+    "lucide-react": "0.479.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-flexyform": "workspace:*",
+    "tailwind-merge": "3.0.2",
+    "tailwind-preset-mantine": "2.0.3"
+  },
+  "devDependencies": {
+    "@react-flexyform/config": "workspace:*",
+    "@tailwindcss/postcss": "4.0.12",
+    "@types/mdx": "2.0.13",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "lint-staged": "15.4.3",
+    "postcss": "8.5.3",
+    "tailwindcss": "4.0.12"
+  }
+}

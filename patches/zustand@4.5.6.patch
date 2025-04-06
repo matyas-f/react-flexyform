@@ -1,0 +1,39 @@
+diff --git a/esm/middleware/immer.d.mts b/esm/middleware/immer.d.mts
+index 27bc45f962b9c204b2305b12765ea64a924647f5..9f50655500c3848f1aa4f2e6a8a0528f3297f3ba 100644
+--- a/esm/middleware/immer.d.mts
++++ b/esm/middleware/immer.d.mts
+@@ -19,7 +19,7 @@ type StoreImmer<S> = S extends {
+     getState: () => infer T;
+     setState: infer SetState;
+ } ? SetState extends (...a: infer A) => infer Sr ? {
+-    setState(nextStateOrUpdater: T | Partial<T> | ((state: Draft<T>) => void), shouldReplace?: boolean | undefined, ...a: SkipTwo<A>): Sr;
++    setState(nextStateOrUpdater: T | Partial<T> | ((state: T) => void), shouldReplace?: boolean | undefined, reduxDevtoolsMetadata?: string): Sr;
+ } : never : never;
+ export declare const immer: Immer;
+ export {};
+diff --git a/esm/middleware/immer.d.ts b/esm/middleware/immer.d.ts
+index e770ab38042021bdbf4e7d12635de380fd563925..25c68eeceb04347f9bc9315a74c94777d037be69 100644
+--- a/esm/middleware/immer.d.ts
++++ b/esm/middleware/immer.d.ts
+@@ -19,7 +19,7 @@ type StoreImmer<S> = S extends {
+     getState: () => infer T;
+     setState: infer SetState;
+ } ? SetState extends (...a: infer A) => infer Sr ? {
+-    setState(nextStateOrUpdater: T | Partial<T> | ((state: Draft<T>) => void), shouldReplace?: boolean | undefined, ...a: SkipTwo<A>): Sr;
++    setState(nextStateOrUpdater: T | Partial<T> | ((state: T) => void), shouldReplace?: boolean | undefined, reduxDevtoolsMetadata?: string): Sr;
+ } : never : never;
+ export declare const immer: Immer;
+ export {};
+diff --git a/middleware/immer.d.ts b/middleware/immer.d.ts
+index e770ab38042021bdbf4e7d12635de380fd563925..25c68eeceb04347f9bc9315a74c94777d037be69 100644
+--- a/middleware/immer.d.ts
++++ b/middleware/immer.d.ts
+@@ -19,7 +19,7 @@ type StoreImmer<S> = S extends {
+     getState: () => infer T;
+     setState: infer SetState;
+ } ? SetState extends (...a: infer A) => infer Sr ? {
+-    setState(nextStateOrUpdater: T | Partial<T> | ((state: Draft<T>) => void), shouldReplace?: boolean | undefined, ...a: SkipTwo<A>): Sr;
++    setState(nextStateOrUpdater: T | Partial<T> | ((state: T) => void), shouldReplace?: boolean | undefined, reduxDevtoolsMetadata?: string): Sr;
+ } : never : never;
+ export declare const immer: Immer;
+ export {};

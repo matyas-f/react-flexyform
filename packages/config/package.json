@@ -1,0 +1,40 @@
+{
+  "name": "@react-flexyform/config",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./eslint/react": "./src/eslint/react.js",
+    "./prettier": "./src/prettier.json",
+    "./tsconfig": "./src/tsconfig.json",
+    "./tsup/dts": "./src/tsup.dts.js",
+    "./tsup/esm": "./src/tsup.esm.js"
+  },
+  "scripts": {
+    "eslint": "eslint --report-unused-disable-directives --max-warnings 0",
+    "eslint:fix": "eslint . --ext ts,tsx --fix",
+    "lint-staged": "lint-staged",
+    "prettier": "prettier . --check",
+    "prettier:fix": "prettier . --write",
+    "typecheck": "tsc --noEmit"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "pnpm eslint",
+      "pnpm prettier"
+    ],
+    "!(*.js|*.jsx|*.ts|*.tsx}": [
+      "pnpm prettier"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/compat": "1.2.7",
+    "@eslint/eslintrc": "3.3.0",
+    "@eslint/js": "9.22.0",
+    "@typescript-eslint/eslint-plugin": "8.26.0",
+    "@typescript-eslint/parser": "8.26.0",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "16.0.0",
+    "lint-staged": "15.4.3"
+  }
+}

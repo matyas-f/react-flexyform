@@ -1,0 +1,31 @@
+name: checks
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 7
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: 'pnpm'
+      - name: Install package.json dependencies
+        run: pnpm install
+      - name: Linting check
+        run: pnpm eslint
+      - name: Formatting check
+        run: pnpm prettier
+      - name: Packages check
+        run: pnpm syncpack
+      - name: Build check
+        run: pnpm build
