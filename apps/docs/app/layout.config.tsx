@@ -11,5 +11,5 @@ export const baseOptions: BaseLayoutProps = {
   nav: {
     title: <>React FlexyForm</>,
   },
-  githubUrl: 'test',
+  githubUrl: 'https://github.com/matyas-f/react-flexyform',
 }
