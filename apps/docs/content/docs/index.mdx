@@ -202,427 +202,459 @@ export const App = () => (
 
 To create a form, we first need to create the `formStore` instance for our form using the [useCreateFormStore](/docs/form-store#usecreateformstore) hook (learn more about the [form store and configuration](/docs/form-store)). This will initiate the state store of the form based on the configuration and it will return a `formStore` instance that we will need to pass to the [\<Form\>](/docs/form-store#form) component.
 
+<BookingFormExample />
+
 ```tsx
-import { Form, useCreateFormStore } from 'react-flexyform'
+import React from 'react'
+import {
+  CreateStoreMultiStepConfiguration,
+  Form,
+  FormStore,
+  useCreateFormStore,
+} from 'react-flexyform'
+import { format } from 'date-fns'
 
-export const BookingFormRoute = () => {
-  const bookingFormStore = useCreateFormStore('booking', (getFormStore) => ({
-    events: {
-      onGoToNextStep: async () => {
-        // In case of going to the previous step, not modifying anything and going to the next step, there will be no need to send a request with the unmodified values
-        if (getFormStore().getIsStepDirty()) {
-          // Send request to save the state on the server when going to the next step
-          // Access field values with getFormStore().getAllFieldValues() or getFormStore().getStepFieldValues()
-          await wait(1500)
-        }
-      },
+export type FormStoreFormFields = {
+  service: string
+  withGuide: boolean
+  guide?: string
+  bookingDate: Date
+  bookingTime: string
+  fullName: string
+  email: string
+  phone: string
+  otherParticipants: { fullName: string; email: string; phone: string }[]
+}
+
+export const getBookingFormStoreBase = (
+  getFormStore: () => FormStore<FormStoreFormFields>
+): CreateStoreMultiStepConfiguration<FormStoreFormFields> => ({
+  events: {
+    onGoToNextStep: async () => {
+      // In case of going to the previous step, not modifying anything and going to the next step, there will be no need to send a request with the unmodified values
+      if (getFormStore().getIsStepDirty()) {
+        // Send request to save the state on the server when going to the next step
+        // Access field values with getFormStore().getAllFieldValues() or getFormStore().getStepFieldValues()
+        await saveBookingStep(
+          getFormStore().currentStepName,
+          getFormStore().getStepFieldValues()
+        )
+      }
     },
-    steps: [
-      {
-        name: 'termsAndConditions',
-        components: [
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'stepProgress',
-              componentParams: {
-                steps: [
-                  { label: 'Consent' },
-                  { label: 'Date & time' },
-                  { label: 'Personal info' },
-                ],
-              },
-            }),
+  },
+  steps: [
+    {
+      name: 'Service',
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'title',
-              componentParams: {
-                children: 'Terms and conditions',
-              },
-            }),
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Service',
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'paragraph',
-              componentParams: {
-                children:
-                  'Here usually comes a really long text of the terms and conditions. Once you accept this, you will not need to accept it again (only if you clear local storage).',
+        },
+        {
+          name: 'service',
+          type: 'field',
+          formComponentMappingKey: 'select',
+          componentParams: {
+            label: 'Choose a service for your booking',
+            data: [
+              {
+                value: 'mountainClimbing',
+                label: 'Mountain climbing',
               },
-            }),
+              {
+                value: 'kayaking',
+                label: 'Kayaking',
+              },
+            ],
           },
-          {
-            name: 'areTermsAndConditionsAccepted',
-            ...typeSafeFieldComponent({
-              formComponentMappingKey: 'checkbox',
-              componentParams: {
-                label: 'I accept the terms and conditions',
-              },
-            }),
-            validationRules: {
-              mustBeEqualTo: {
-                value: true,
-                message:
-                  'You need to accept the terms and conditions to move forward',
-              },
+          validationRules: {
+            required: {
+              message: 'Required',
             },
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'goToPreviousStepButton',
-              componentParams: {
-                wrapperParams: {
-                  span: 6,
-                },
-              },
-            }),
+        },
+        {
+          name: 'withGuide',
+          type: 'field',
+          formComponentMappingKey: 'toggle',
+          componentParams: {
+            label: 'I want a guide',
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'goToNextStepButton',
-              componentParams: {
-                wrapperParams: {
-                  span: 6,
-                },
+          defaultValue: false,
+        },
+        {
+          name: 'guide',
+          shouldShowOnlyIf: { withGuide: true },
+          type: 'field',
+          formComponentMappingKey: 'select',
+          componentParams: {
+            label: 'Choose a guide (optional)',
+            placeholder: 'Any guide is okay for me',
+            clearable: true,
+            data: [
+              {
+                value: 'johnWood',
+                label: 'John Wood',
               },
-            }),
+              {
+                value: 'christopherRock',
+                label: 'Christopher Rock',
+              },
+              {
+                value: 'annaWater',
+                label: 'Anna Water',
+              },
+            ],
           },
-        ],
-      },
-      {
-        name: 'bookingDetails',
-        components: [
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'stepProgress',
-              componentParams: {
-                steps: [
-                  { label: 'Consent' },
-                  { label: 'Date & time' },
-                  { label: 'Personal info' },
-                ],
-              },
-            }),
-          },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'title',
-              componentParams: {
-                children: 'Date & time',
-              },
-            }),
-          },
-          {
-            name: 'bookingDate',
-            ...typeSafeFieldComponent({
-              formComponentMappingKey: 'date',
-              componentParams: {
-                label: 'Choose a day for your booking',
-              },
-            }),
-            validationRules: {
-              required: {
-                message: 'Required',
-              },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToPreviousStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
             },
           },
-          {
-            name: 'bookingTime',
-            ...typeSafeFieldComponent({
-              formComponentMappingKey: 'select',
-              componentParams: {
-                value: async () => {
-                  const bookingDate =
-                    getFormStore().getFieldValue('bookingDate')
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToNextStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
+          },
+        },
+      ],
+    },
+    {
+      name: 'bookingDetails',
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
+          },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Date & time',
+          },
+        },
+        {
+          name: 'bookingDate',
+          type: 'field',
+          formComponentMappingKey: 'date',
+          componentParams: {
+            label: 'Choose a day for your booking',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+          },
+        },
+        {
+          name: 'bookingTime',
+          type: 'field',
+          formComponentMappingKey: 'select',
+          componentParams: {
+            value: async () => {
+              const bookingDate = getFormStore().getFieldValue('bookingDate')
 
-                  if (!bookingDate) {
-                    return {
-                      label: 'Choose a time for your booking',
-                      data: [],
-                      disabled: true,
-                    }
-                  }
-
-                  const data = await getTimes(bookingDate)
-
-                  return {
-                    label: 'Choose a time for your booking',
-                    data,
-                    disabled: false,
-                  }
-                },
-                dependencies: () => [
-                  getFormStore().getFieldValue('bookingDate'),
-                ],
-              },
-            }),
-            reactToChanges: {
-              functionToRun: () => {
-                if (!getFormStore().getFieldValue('bookingDate')) {
-                  getFormStore().setFieldValue('bookingTime', '')
+              if (!bookingDate) {
+                return {
+                  label: 'Choose a time for your booking',
+                  description:
+                    'Depends on the date chosen, please choose a date first',
+                  data: [],
+                  disabled: true,
                 }
-              },
-              dependencies: () => [getFormStore().getFieldValue('bookingDate')],
+              }
+
+              return {
+                label: 'Choose a time for your booking',
+                description:
+                  'Depends on the date chosen, please choose a date first',
+                data: await getAvailableTimeslotsForDate(bookingDate),
+                disabled: false,
+              }
             },
-            validationRules: {
-              required: {
-                message: 'Required',
-              },
+            dependencies: () => [getFormStore().getFieldValue('bookingDate')],
+          },
+          reactToChanges: {
+            functionToRun: () => {
+              getFormStore().setFieldValue('bookingTime', '')
+            },
+            dependencies: () => [getFormStore().getFieldValue('bookingDate')],
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
             },
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'goToPreviousStepButton',
-              componentParams: {
-                variant: 'outline',
-                wrapperParams: {
-                  span: 6,
-                },
-              },
-            }),
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToPreviousStepButton',
+          componentParams: {
+            variant: 'outline',
+            wrapperParams: {
+              span: 6,
+            },
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'goToNextStepButton',
-              componentParams: {
-                wrapperParams: {
-                  span: 6,
-                },
-              },
-            }),
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToNextStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
+            },
           },
-        ],
-      },
-      {
-        name: 'personalDetails',
-        components: [
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'stepProgress',
-              componentParams: {
-                steps: [
-                  { label: 'Consent' },
-                  { label: 'Date & time' },
-                  { label: 'Personal info' },
-                ],
-              },
-            }),
+        },
+      ],
+    },
+    {
+      name: 'personalDetails',
+      shouldGoToNextStepOnEnter: true,
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
+            ],
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'title',
-              componentParams: {
-                children: 'Personal info',
-              },
-            }),
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Personal info',
           },
-          {
-            name: 'fullName',
-            ...typeSafeFieldComponent({
+        },
+        {
+          name: 'fullName',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Full name',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+          },
+        },
+        {
+          name: 'email',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Email',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+            email: {
+              message: 'Must be a valid email',
+            },
+          },
+        },
+        {
+          name: 'phone',
+          type: 'field',
+          formComponentMappingKey: 'text',
+          componentParams: {
+            label: 'Phone',
+            description: 'Include country code too',
+          },
+          validationRules: {
+            required: {
+              message: 'Required',
+            },
+            phoneNumber: {
+              message: 'Must be a valid phone number',
+            },
+          },
+        },
+        {
+          name: 'otherParticipants',
+          type: 'field',
+          formComponentMappingKey: 'nestedArray',
+          componentParams: {
+            label: 'Other participants (3 max)',
+            emptyStateText: 'No other participants added yet',
+          },
+          validationRules: {
+            maxLength: {
+              message: 'Cannot add more than 3 participants',
+              value: 3,
+            },
+          },
+          nestedArrayComponents: [
+            {
+              name: 'fullName',
+              type: 'field',
               formComponentMappingKey: 'text',
               componentParams: {
                 label: 'Full name',
               },
-            }),
-            validationRules: {
-              required: {
-                message: 'Required',
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
               },
             },
-          },
-          {
-            name: 'email',
-            ...typeSafeFieldComponent({
+            {
+              name: 'email',
+              type: 'field',
               formComponentMappingKey: 'text',
               componentParams: {
                 label: 'Email',
               },
-            }),
-            validationRules: {
-              required: {
-                message: 'Required',
-              },
-              email: {
-                message: 'Must be a valid email',
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+                email: {
+                  message: 'Must be a valid email',
+                },
               },
             },
-          },
-          {
-            name: 'phone',
-            ...typeSafeFieldComponent({
+            {
+              name: 'phone',
+              type: 'field',
               formComponentMappingKey: 'text',
               componentParams: {
                 label: 'Phone',
+                description: 'Include country code too',
               },
-            }),
-            validationRules: {
-              required: {
-                message: 'Required',
+              validationRules: {
+                required: {
+                  message: 'Required',
+                },
+                phoneNumber: {
+                  message: 'Must be a valid phone number',
+                },
               },
-              phoneNumber: {
-                message: 'Must be a valid phone number',
-              },
+            },
+            {
+              type: 'ui',
+              formComponentMappingKey: 'removeNestedArrayItemButton',
+            },
+          ],
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToPreviousStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
             },
           },
-          {
-            name: 'otherGuests',
-            ...typeSafeFieldComponent({
-              formComponentMappingKey: 'nestedArray',
-              componentParams: {
-                label: 'Add guests',
-                emptyStateText: 'No guests added yet',
-              },
-            }),
-            validationRules: {
-              maxLength: {
-                message: 'Cannot add more than 3 guests',
-                value: 3,
-              },
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'goToNextStepButton',
+          componentParams: {
+            wrapperParams: {
+              span: 6,
             },
-            nestedArrayComponents: [
-              {
-                name: 'fullName',
-                ...typeSafeFieldComponent({
-                  formComponentMappingKey: 'text',
-                  componentParams: {
-                    label: 'Full name',
-                  },
-                }),
-                validationRules: {
-                  required: {
-                    message: 'Required',
-                  },
-                },
-              },
-              {
-                name: 'email',
-                ...typeSafeFieldComponent({
-                  formComponentMappingKey: 'text',
-                  componentParams: {
-                    label: 'Email',
-                  },
-                }),
-                validationRules: {
-                  required: {
-                    message: 'Required',
-                  },
-                  email: {
-                    message: 'Must be a valid email',
-                  },
-                },
-              },
-              {
-                name: 'phone',
-                ...typeSafeFieldComponent({
-                  formComponentMappingKey: 'text',
-                  componentParams: {
-                    label: 'Phone',
-                  },
-                }),
-                validationRules: {
-                  required: {
-                    message: 'Required',
-                  },
-                  phoneNumber: {
-                    message: 'Must be a valid phone number',
-                  },
-                },
-              },
-              {
-                ...typeSafeUiComponent({
-                  formComponentMappingKey: 'removeNestedArrayItemButton',
-                  componentParams: {},
-                }),
-              },
+          },
+        },
+      ],
+    },
+    {
+      name: 'success',
+      components: [
+        {
+          type: 'ui',
+          formComponentMappingKey: 'stepProgress',
+          componentParams: {
+            steps: [
+              { label: 'Service' },
+              { label: 'Date & time' },
+              { label: 'Personal info' },
             ],
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'goToPreviousStepButton',
-              componentParams: {
-                wrapperParams: {
-                  span: 6,
-                },
-              },
-            }),
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'title',
+          componentParams: {
+            children: 'Successful booking',
+            size: 'xl',
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'goToNextStepButton',
-              componentParams: {
-                wrapperParams: {
-                  span: 6,
-                },
-              },
-            }),
-          },
-        ],
-      },
-      {
-        name: 'success',
-        components: [
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'stepProgress',
-              componentParams: {
-                steps: [
-                  { label: 'Consent' },
-                  { label: 'Date & time' },
-                  { label: 'Personal info' },
-                ],
-              },
-            }),
-          },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'title',
-              componentParams: {
-                children: 'Successful booking',
-                size: 'xl',
-              },
-            }),
-          },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'paragraph',
-              componentParams: {
-                value: () => {
-                  const bookingDate =
-                    getFormStore().getFieldValue('bookingDate')
-                  const bookingTime =
-                    getFormStore().getFieldValue('bookingTime')
+        },
+        {
+          name: 'successMessage',
+          type: 'ui',
+          formComponentMappingKey: 'paragraph',
+          componentParams: {
+            value: () => {
+              const fieldValues = getFormStore().getAllFieldValues()
 
-                  return {
-                    children: `Your booking has been confirmed for ${format(bookingDate, 'yyyy-MM-dd')} at ${bookingTime}. We look forward to seeing you then!`,
-                  }
-                },
-                dependencies: () => [
-                  getFormStore().getFieldValue('bookingDate'),
-                  getFormStore().getFieldValue('bookingTime'),
-                ],
-              },
-            }),
+              return {
+                children: `Your booking has been confirmed for ${format(fieldValues?.bookingDate, 'yyyy-MM-dd')} at ${fieldValues?.bookingTime}. We look forward to seeing you then!`,
+              }
+            },
+            dependencies: () => [
+              getFormStore().getFieldValue('bookingDate'),
+              getFormStore().getFieldValue('bookingTime'),
+            ],
           },
-          {
-            ...typeSafeUiComponent({
-              formComponentMappingKey: 'button',
-              componentParams: {
-                onClick: () => {
-                  getFormStore().resetFormState()
-                },
-                children: 'New booking',
-              },
-            }),
+        },
+        {
+          type: 'ui',
+          formComponentMappingKey: 'button',
+          componentParams: {
+            onClick: () => {
+              getFormStore().resetFormState()
+            },
+            children: 'New booking',
           },
-        ],
-      },
-    ],
-  }))
+        },
+      ],
+    },
+  ],
+})
 
-  return <Form formStore={exampleFormStore} />
+export const BookingFormExample = () => {
+  const bookingFormStore = useCreateFormStore<FormStoreFormFields>(
+    'bookingForm',
+    getBookingFormStoreBase
+  )
+
+  return <Form formStore={bookingFormStore} />
 }
 ```
-
-<BookingFormExample />
 
 ## Conclusion
 

@@ -11,7 +11,7 @@ import {
   Text,
   TextProps,
 } from '@mantine/core'
-import { useColorScheme } from '@mantine/hooks'
+import { useTheme } from 'next-themes'
 
 export type Params = TextProps & {
   label?: string
@@ -22,7 +22,7 @@ export type Params = TextProps & {
 }
 
 export const FormIntegratedNestedArrayField = () => {
-  const colorScheme = useColorScheme()
+  const { resolvedTheme } = useTheme()
   const field = useField()
   const {
     label,
@@ -57,7 +57,9 @@ export const FormIntegratedNestedArrayField = () => {
               }}
               p="lg"
               bd={
-                colorScheme === 'dark' ? '1px solid gray.7' : '1px solid gray.4'
+                resolvedTheme === 'dark'
+                  ? '1px solid gray.7'
+                  : '1px solid gray.4'
               }
               mb={!isLastIndex ? 'xl' : undefined}
               className={nestedComponentsGridClassName}

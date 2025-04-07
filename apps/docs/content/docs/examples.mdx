@@ -1549,14 +1549,7 @@ export const getBookingFormStoreBase = (
           },
           reactToChanges: {
             functionToRun: () => {
-              const bookingDateField = getFormStore().getField('bookingDate')
-
-              if (
-                bookingDateField?.value?.getTime?.() !==
-                bookingDateField?.stepInitialValue?.getTime?.()
-              ) {
-                getFormStore().setFieldValue('bookingTime', '')
-              }
+              getFormStore().setFieldValue('bookingTime', '')
             },
             dependencies: () => [getFormStore().getFieldValue('bookingDate')],
           },
